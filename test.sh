@@ -1,6 +1,6 @@
 
 function test() {
-  ./main "$2" > tmp.s
+  ./chibicc "$2" > tmp.s
   cc -o tmp tmp.s
   ./tmp
   ret=$?

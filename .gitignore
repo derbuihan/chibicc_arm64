@@ -1,4 +1,6 @@
-.idea
-main.s
-main
+*~
+*.o
 tmp*
+a.out
+chibicc
+.idea
