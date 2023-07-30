@@ -1,8 +1,11 @@
 #include "chibicc.h"
 
 static Node *expr(Token **rest, Token *tok);
+
 static Node *mul(Token **rest, Token *tok);
+
 static Node *primary(Token **rest, Token *tok);
+
 static Node *num(Token **rest, Token *tok);
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
@@ -44,7 +47,7 @@ Node *expr(Token **rest, Token *tok) {
 Node *mul(Token **rest, Token *tok) {
     Node *node = primary(&tok, tok);
 
-    for(;;) {
+    for (;;) {
         if (*(tok->loc) == '*') {
             node = new_node(
                     ND_MUL,
@@ -92,33 +95,5 @@ Node *num(Token **rest, Token *tok) {
 Node *parse(Token *tok) {
     Node *node = expr(&tok, tok);
     return node;
-}
-
-
-void print_nodes(Node *node) {
-    if (node->kind == ND_NUM) {
-        printf("%d ", node->val);
-        return;
-    }
-
-    print_nodes(node->lhs);
-    print_nodes(node->rhs);
-
-    switch (node->kind) {
-        case ND_ADD:
-            printf("+ ");
-            return;
-        case ND_SUB:
-            printf("- ");
-            return;
-        case ND_MUL:
-            printf("* ");
-            return;
-        case ND_DIV:
-            printf("/ ");
-            return;
-        default:
-            return;
-    }
 }
 

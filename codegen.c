@@ -1,5 +1,6 @@
 #include "chibicc.h"
 
+
 void gen_expr(Node *node) {
     if (node->kind == ND_NUM) {
         printf("    mov w0, %d\n", node->val);
@@ -65,9 +66,8 @@ void code_gen(Node *node) {
     printf("    .p2align 2\n");
     printf("_main:\n");
 
-    gen_expr2(node);
+    gen_expr(node);
 
     printf("    ret\n");
-
 }
 

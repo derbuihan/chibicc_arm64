@@ -43,16 +43,3 @@ Token *tokenizer(char *p) {
     return head.next;
 }
 
-void print_tokens(Token *tok) {
-    Token *now = tok;
-    while (now->kind != TK_EOF) {
-        for (int i = 0; i < now->len; i++) {
-            printf("%c", *(now->loc + i));
-        }
-        printf(", ");
-        now = now->next;
-    }
-    printf("\n");
-}
-
-
