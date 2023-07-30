@@ -18,6 +18,11 @@ void print_nodes(Node *node) {
         printf("%d ", node->val);
         return;
     }
+    if (node->kind == ND_NEG) {
+        printf("- ");
+        print_nodes(node->lhs);
+        return;
+    }
 
     print_nodes(node->lhs);
     print_nodes(node->rhs);
@@ -44,11 +49,9 @@ int main(int argc, char **argv) {
     char *p = argv[1];
 
     Token *tok = tokenizer(p);
-    // print tokens
     // print_tokens(tok);
 
     Node *node = parse(tok);
-    // print nodes
     // print_nodes(node);
     // printf("\n");
 

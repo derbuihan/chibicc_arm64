@@ -6,6 +6,11 @@ void gen_expr(Node *node) {
         printf("    mov w0, %d\n", node->val);
         return;
     }
+    if (node->kind == ND_NEG) {
+        gen_expr(node->lhs);
+        printf("    neg w0, w0\n");
+        return;
+    }
 
     gen_expr(node->rhs);
     printf("    str w0, [sp, -16]!\n"); // push

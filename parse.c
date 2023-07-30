@@ -4,6 +4,8 @@ static Node *expr(Token **rest, Token *tok);
 
 static Node *mul(Token **rest, Token *tok);
 
+static Node *unary(Token **rest, Token *tok);
+
 static Node *primary(Token **rest, Token *tok);
 
 static Node *num(Token **rest, Token *tok);
@@ -43,16 +45,16 @@ Node *expr(Token **rest, Token *tok) {
     }
 }
 
-// mul = primary ('*' primary | '/' primary)*
+// mul = unary ('*' unary | '/' unary)*
 Node *mul(Token **rest, Token *tok) {
-    Node *node = primary(&tok, tok);
+    Node *node = unary(&tok, tok);
 
     for (;;) {
         if (*(tok->loc) == '*') {
             node = new_node(
                     ND_MUL,
                     node,
-                    primary(&tok, tok->next)
+                    unary(&tok, tok->next)
             );
             continue;
         }
@@ -60,13 +62,28 @@ Node *mul(Token **rest, Token *tok) {
             node = new_node(
                     ND_DIV,
                     node,
-                    primary(&tok, tok->next)
+                    unary(&tok, tok->next)
             );
             continue;
         }
         *rest = tok;
         return node;
     }
+}
+
+// unary = ('+' | '-')? primary
+Node *unary(Token **rest, Token *tok) {
+    if (*(tok->loc) == '+') {
+        return unary(rest, tok->next);
+    }
+    if (*(tok->loc) == '-') {
+        return new_node(
+                ND_NEG,
+                unary(rest, tok->next),
+                NULL
+        );
+    }
+    return primary(rest, tok);
 }
 
 // primary = num | '(' expr ')'
@@ -96,4 +113,3 @@ Node *parse(Token *tok) {
     Node *node = expr(&tok, tok);
     return node;
 }
-
