@@ -1,6 +1,13 @@
 #include "chibicc.h"
 
+
 static Node *expr(Token **rest, Token *tok);
+
+static Node *equality(Token **rest, Token *tok);
+
+static Node *relational(Token **rest, Token *tok);
+
+static Node *add(Token **rest, Token *tok);
 
 static Node *mul(Token **rest, Token *tok);
 
@@ -18,8 +25,93 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
     return node;
 }
 
-// expr = mul ("+" mul | "-" mul)*
+// expr = equality
+// equality = relational ("==" relational | "!=" relational)*
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// add = mul ("+" mul | "-" mul)*
+// mul = unary ('*' unary | '/' unary)*
+// unary = ('+' | '-')? primary
+// primary = num | '(' expr ')'
+// num = 1, 2, 3, ...
+
+// expr = equality
 Node *expr(Token **rest, Token *tok) {
+    Node *node = equality(rest, tok);
+    return node;
+}
+
+// equality = relational ("==" relational | "!=" relational)*
+Node *equality(Token **rest, Token *tok) {
+    Node *node = relational(&tok, tok);
+
+    for (;;) {
+        if (tok->len == 2 && *(tok->loc) == '=' && *(tok->loc + 1) == '=') {
+            node = new_node(
+                    ND_EQ,
+                    node,
+                    relational(&tok, tok->next)
+            );
+            continue;
+        }
+        if (tok->len == 2 && *(tok->loc) == '!' && *(tok->loc + 1) == '=') {
+            node = new_node(
+                    ND_NE,
+                    relational(&tok, tok->next),
+                    node
+            );
+            continue;
+        }
+
+        *rest = tok;
+        return node;
+    }
+}
+
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+Node *relational(Token **rest, Token *tok) {
+    Node *node = add(&tok, tok);
+
+    for (;;) {
+        if (tok->len == 1 && *(tok->loc) == '<') {
+            node = new_node(
+                    ND_LT,
+                    node,
+                    add(&tok, tok->next)
+            );
+            continue;
+        }
+        if (tok->len == 1 && *(tok->loc) == '>') {
+            node = new_node(
+                    ND_LT,
+                    add(&tok, tok->next),
+                    node
+            );
+            continue;
+        }
+        if (tok->len == 2 && *(tok->loc) == '<' && *(tok->loc + 1) == '=') {
+            node = new_node(
+                    ND_LE,
+                    node,
+                    add(&tok, tok->next)
+            );
+            continue;
+        }
+        if (tok->len == 2 && *(tok->loc) == '>' && *(tok->loc + 1) == '=') {
+            node = new_node(
+                    ND_LE,
+                    add(&tok, tok->next),
+                    node
+            );
+            continue;
+        }
+
+        *rest = tok;
+        return node;
+    }
+}
+
+// add = mul ("+" mul | "-" mul)*
+Node *add(Token **rest, Token *tok) {
     Node *node = mul(&tok, tok);
 
     for (;;) {

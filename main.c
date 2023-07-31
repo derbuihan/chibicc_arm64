@@ -40,6 +40,19 @@ void print_nodes(Node *node) {
         case ND_DIV:
             printf("/ ");
             return;
+        case ND_EQ:
+            printf("== ");
+            return;
+        case ND_NE:
+            printf("!= ");
+            return;
+        case ND_LT:
+            printf("< ");
+            return;
+        case ND_LE:
+            printf("<= ");
+            return;
+
         default:
             return;
     }

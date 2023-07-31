@@ -29,14 +29,26 @@ Token *tokenizer(char *p) {
             continue;
         }
 
-        if (ispunct(*p)) {
-            char *q = p;
-            p++;
-            Token *tok = new_token(TK_PUNCT, q, p);
+        if (memcmp(p, "==", 2) == 0
+            || memcmp(p, "!=", 2) == 0
+            || memcmp(p, "<=", 2) == 0
+            || memcmp(p, ">=", 2) == 0) {
+            Token *tok = new_token(TK_PUNCT, p, p + 2);
+            p += tok->len;
             cur->next = tok;
             cur = cur->next;
             continue;
         }
+
+        if (ispunct(*p)) {
+            Token *tok = new_token(TK_PUNCT, p, p + 1);
+            p += tok->len;
+            cur->next = tok;
+            cur = cur->next;
+            continue;
+        }
+
+        break;
     }
     Token *tok = new_token(TK_EOF, p, p);
     cur->next = tok;

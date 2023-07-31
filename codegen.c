@@ -30,6 +30,22 @@ void gen_expr(Node *node) {
         case ND_DIV:
             printf("    sdiv w0, w0, w1\n");
             return;
+        case ND_EQ:
+            printf("    cmp w0, w1\n");
+            printf("    cset w0, EQ\n");
+            return;
+        case ND_NE:
+            printf("    cmp w0, w1\n");
+            printf("    cset w0, NE\n");
+            return;
+        case ND_LT:
+            printf("    cmp w0, w1\n");
+            printf("    cset w0, LT\n");
+            return;
+        case ND_LE:
+            printf("    cmp w0, w1\n");
+            printf("    cset w0, LE\n");
+            return;
         default:
             return;
     }

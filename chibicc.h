@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 // tokenizer
@@ -25,12 +26,16 @@ Token *tokenizer(char *p);
 // parser
 
 typedef enum {
-    ND_ADD,
-    ND_SUB,
-    ND_MUL,
-    ND_DIV,
-    ND_NEG,
-    ND_NUM,
+    ND_ADD, // +
+    ND_SUB, // -
+    ND_MUL, // *
+    ND_DIV, // /
+    ND_NEG, // unary -
+    ND_EQ,  // ==
+    ND_NE,  // !=
+    ND_LT,  // <
+    ND_LE,  // <=
+    ND_NUM, // Integer
 } NodeKind;
 
 typedef struct Node Node;
