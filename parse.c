@@ -1,7 +1,12 @@
 #include "chibicc.h"
 
+static Node *program(Token **rest, Token *tok);
+
+static Node *stmt(Token **rest, Token *tok);
 
 static Node *expr(Token **rest, Token *tok);
+
+static Node *assign(Token **rest, Token *tok);
 
 static Node *equality(Token **rest, Token *tok);
 
@@ -15,6 +20,8 @@ static Node *unary(Token **rest, Token *tok);
 
 static Node *primary(Token **rest, Token *tok);
 
+static Node *ident(Token **rest, Token *tok);
+
 static Node *num(Token **rest, Token *tok);
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
@@ -25,18 +32,62 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
     return node;
 }
 
-// expr = equality
+// program = stmt*
+// stmt = expr ";"
+// expr = assign
+// assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
-// mul = unary ('*' unary | '/' unary)*
-// unary = ('+' | '-')? primary
-// primary = num | '(' expr ')'
+// mul = unary ("*" unary | "/" unary)*
+// unary = ("+" | "-")? primary
+// primary = "(" expr ")" | ident | num
+// ident = 'a', 'b', ..., 'z'
 // num = 1, 2, 3, ...
 
-// expr = equality
+// program = stmt*
+Node *program(Token **rest, Token *tok) {
+    Node head = {};
+    Node *cur = &head;
+    while (tok->kind != TK_EOF) {
+        cur->next = stmt(&tok, tok);
+        cur = cur->next;
+    }
+    return head.next;
+}
+
+// stmt = expr ";"
+Node *stmt(Token **rest, Token *tok) {
+    Node *node = new_node(
+            ND_EXPR_STMT,
+            expr(&tok, tok),
+            NULL
+    );
+
+    *rest = tok->next; // skip ";"
+    return node;
+}
+
+// expr = assign
 Node *expr(Token **rest, Token *tok) {
-    Node *node = equality(rest, tok);
+    Node *node = assign(&tok, tok);
+    *rest = tok;
+    return node;
+}
+
+// assign = equality ("=" assign)?
+Node *assign(Token **rest, Token *tok) {
+    Node *node = equality(&tok, tok);
+
+    if (tok->len == 1 && *(tok->loc) == '=') {
+        node = new_node(
+                ND_ASSIGN,
+                node,
+                assign(&tok, tok->next)
+        );
+    }
+
+    *rest = tok;
     return node;
 }
 
@@ -137,7 +188,7 @@ Node *add(Token **rest, Token *tok) {
     }
 }
 
-// mul = unary ('*' unary | '/' unary)*
+// mul = unary ("*" unary | "/" unary)*
 Node *mul(Token **rest, Token *tok) {
     Node *node = unary(&tok, tok);
 
@@ -158,38 +209,63 @@ Node *mul(Token **rest, Token *tok) {
             );
             continue;
         }
+
         *rest = tok;
         return node;
     }
 }
 
-// unary = ('+' | '-')? primary
+// unary = ("+" | "-")? primary
 Node *unary(Token **rest, Token *tok) {
     if (*(tok->loc) == '+') {
-        return unary(rest, tok->next);
+        Node *node = unary(&tok, tok->next);
+        *rest = tok;
+        return node;
     }
+
     if (*(tok->loc) == '-') {
-        return new_node(
+        Node *node = new_node(
                 ND_NEG,
-                unary(rest, tok->next),
+                unary(&tok, tok->next),
                 NULL
         );
+        *rest = tok;
+        return node;
     }
-    return primary(rest, tok);
+
+    Node *node = primary(&tok, tok);
+    *rest = tok;
+    return node;
 }
 
-// primary = num | '(' expr ')'
+// primary = "(" expr ")" | ident | num
 Node *primary(Token **rest, Token *tok) {
-    if (tok->kind == TK_NUM) {
-        Node *node = num(rest, tok);
+    if (*(tok->loc) == '(') {
+        Node *node = expr(&tok, tok->next);
+        *rest = tok->next; // skip ")"
         return node;
     }
 
-    if (*(tok->loc) == '(') {
-        Node *node = expr(&tok, tok->next);
-        *rest = tok->next;
+    if (tok->kind == TK_IDENT) {
+        Node *node = ident(&tok, tok);
+        *rest = tok;
         return node;
     }
+
+    if (tok->kind == TK_NUM) {
+        Node *node = num(&tok, tok);
+        *rest = tok;
+        return node;
+    }
+}
+
+// ident = 'a', 'b', ..., 'z'
+Node *ident(Token **rest, Token *tok) {
+    Node *node = new_node(ND_VAR, NULL, NULL);
+    node->name = *(tok->loc);
+
+    *rest = tok->next;
+    return node;
 }
 
 // num = 1, 2, 3, ...
@@ -202,6 +278,6 @@ Node *num(Token **rest, Token *tok) {
 }
 
 Node *parse(Token *tok) {
-    Node *node = expr(&tok, tok);
+    Node *node = program(&tok, tok);
     return node;
 }

@@ -5,7 +5,7 @@ void print_tokens(Token *tok) {
     Token *now = tok;
     while (now->kind != TK_EOF) {
         for (int i = 0; i < now->len; i++) {
-            printf("%c", *(now->loc + i));
+            printf("(%d, %c)", now->kind, *(now->loc + i));
         }
         printf(", ");
         now = now->next;
@@ -21,6 +21,10 @@ void print_nodes(Node *node) {
     if (node->kind == ND_NEG) {
         printf("- ");
         print_nodes(node->lhs);
+        return;
+    }
+    if (node->kind == ND_VAR) {
+        printf("%c ", node->name);
         return;
     }
 
@@ -52,7 +56,9 @@ void print_nodes(Node *node) {
         case ND_LE:
             printf("<= ");
             return;
-
+        case ND_ASSIGN:
+            printf("= ");
+            return;
         default:
             return;
     }
@@ -65,8 +71,12 @@ int main(int argc, char **argv) {
     // print_tokens(tok);
 
     Node *node = parse(tok);
-    // print_nodes(node);
-    // printf("\n");
+    //for (Node *n = node; n; n = n->next) {
+    //    if (n->kind == ND_EXPR_STMT) {
+    //        print_nodes(n->lhs);
+    //    }
+    //    printf("\n");
+    //}
 
     code_gen(node);
 

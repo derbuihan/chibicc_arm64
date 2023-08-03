@@ -29,6 +29,14 @@ Token *tokenizer(char *p) {
             continue;
         }
 
+        if ('a' <= *p && *p <= 'z') {
+            Token *tok = new_token(TK_IDENT, p, p + 1);
+            p += tok->len;
+            cur->next = tok;
+            cur = cur->next;
+            continue;
+        }
+
         if (memcmp(p, "==", 2) == 0
             || memcmp(p, "!=", 2) == 0
             || memcmp(p, "<=", 2) == 0
