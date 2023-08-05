@@ -6,6 +6,8 @@ static Node *program(Token **rest, Token *tok);
 
 static Node *stmt(Token **rest, Token *tok);
 
+static Node *compound_stmt(Token **rest, Token *tok);
+
 static Node *expr_stmt(Token **rest, Token *tok);
 
 static Node *expr(Token **rest, Token *tok);
@@ -37,7 +39,8 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 // program = stmt*
-// stmt = "return" expr ";" | expr-stmt
+// stmt = "return" expr ";" | "{" compound-stmt | expr-stmt
+// compound-stmt = stmt* "}"
 // expr-stmt = expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -61,17 +64,41 @@ Node *program(Token **rest, Token *tok) {
     return head.next;
 }
 
-// stmt = "return" expr ";" | expr-stmt
+// stmt = "return" expr ";" | "{" compound-stmt | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
-    if (!memcmp(tok->loc, "return", 6)) {
+    if (tok->len ==6 && !memcmp(tok->loc, "return", 6)){
         Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
         assert(*tok->loc == ';');
         *rest = tok->next; // skip ";"
         return node;
     }
 
+    if (tok->len == 1 && *tok->loc == '{') {
+        Node *node = compound_stmt(&tok, tok->next);
+        *rest = tok;
+        return node;
+    }
+
     Node *node = expr_stmt(&tok, tok);
     *rest = tok;
+    return node;
+}
+
+// compound-stmt = stmt* "}"
+Node *compound_stmt(Token **rest, Token *tok) {
+    Node head = {};
+    Node *cur = &head;
+
+    while (!(tok->len == 1 && *tok->loc == '}')) {
+        cur->next = stmt(&tok, tok);
+        cur = cur->next;
+    }
+
+    Node *node = new_node(ND_BLOCK, NULL, NULL);
+    node->body = head.next;
+
+    assert(*tok->loc == '}');
+    *rest = tok->next;
     return node;
 }
 
@@ -94,7 +121,7 @@ Node *expr(Token **rest, Token *tok) {
 Node *assign(Token **rest, Token *tok) {
     Node *node = equality(&tok, tok);
 
-    if (tok->len == 1 && *(tok->loc) == '=') {
+    if (tok->len == 1 && *tok->loc == '=') {
         node = new_node(
                 ND_ASSIGN,
                 node,
@@ -111,7 +138,7 @@ Node *equality(Token **rest, Token *tok) {
     Node *node = relational(&tok, tok);
 
     for (;;) {
-        if (tok->len == 2 && *(tok->loc) == '=' && *(tok->loc + 1) == '=') {
+        if (tok->len == 2 && !memcmp(tok->loc, "==", 2)) {
             node = new_node(
                     ND_EQ,
                     node,
@@ -119,7 +146,7 @@ Node *equality(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (tok->len == 2 && *(tok->loc) == '!' && *(tok->loc + 1) == '=') {
+        if (tok->len == 2 && !memcmp(tok->loc, "!=", 2)) {
             node = new_node(
                     ND_NE,
                     relational(&tok, tok->next),
@@ -138,7 +165,7 @@ Node *relational(Token **rest, Token *tok) {
     Node *node = add(&tok, tok);
 
     for (;;) {
-        if (tok->len == 1 && *(tok->loc) == '<') {
+        if (tok->len == 1 && *tok->loc == '<') {
             node = new_node(
                     ND_LT,
                     node,
@@ -146,7 +173,7 @@ Node *relational(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (tok->len == 1 && *(tok->loc) == '>') {
+        if (tok->len == 1 && *tok->loc == '>') {
             node = new_node(
                     ND_LT,
                     add(&tok, tok->next),
@@ -154,7 +181,7 @@ Node *relational(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (tok->len == 2 && *(tok->loc) == '<' && *(tok->loc + 1) == '=') {
+        if (tok->len == 2 && !memcmp(tok->loc, "<=", 2)) {
             node = new_node(
                     ND_LE,
                     node,
@@ -162,7 +189,7 @@ Node *relational(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (tok->len == 2 && *(tok->loc) == '>' && *(tok->loc + 1) == '=') {
+        if (tok->len == 2 && !memcmp(tok->loc, ">=", 2)) {
             node = new_node(
                     ND_LE,
                     add(&tok, tok->next),
@@ -181,7 +208,7 @@ Node *add(Token **rest, Token *tok) {
     Node *node = mul(&tok, tok);
 
     for (;;) {
-        if (*(tok->loc) == '+') {
+        if (tok->len == 1 && *tok->loc == '+') {
             node = new_node(
                     ND_ADD,
                     node,
@@ -189,7 +216,7 @@ Node *add(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (*(tok->loc) == '-') {
+        if (tok->len == 1 && *tok->loc == '-') {
             node = new_node(
                     ND_SUB,
                     node,
@@ -208,7 +235,7 @@ Node *mul(Token **rest, Token *tok) {
     Node *node = unary(&tok, tok);
 
     for (;;) {
-        if (*(tok->loc) == '*') {
+        if (tok->len == 1 && *tok->loc == '*') {
             node = new_node(
                     ND_MUL,
                     node,
@@ -216,7 +243,7 @@ Node *mul(Token **rest, Token *tok) {
             );
             continue;
         }
-        if (*(tok->loc) == '/') {
+        if (tok->len == 1 && *tok->loc == '/') {
             node = new_node(
                     ND_DIV,
                     node,
@@ -232,13 +259,13 @@ Node *mul(Token **rest, Token *tok) {
 
 // unary = ("+" | "-") unary | primary
 Node *unary(Token **rest, Token *tok) {
-    if (*(tok->loc) == '+') {
+    if (tok->len == 1 && *tok->loc == '+') {
         Node *node = unary(&tok, tok->next);
         *rest = tok;
         return node;
     }
 
-    if (*(tok->loc) == '-') {
+    if (tok->len == 1 && *tok->loc == '-') {
         Node *node = new_node(
                 ND_NEG,
                 unary(&tok, tok->next),
@@ -255,7 +282,7 @@ Node *unary(Token **rest, Token *tok) {
 
 // primary = "(" expr ")" | ident | num
 Node *primary(Token **rest, Token *tok) {
-    if (*(tok->loc) == '(') {
+    if (tok->len == 1 && *tok->loc == '(') {
         Node *node = expr(&tok, tok->next);
         assert(*tok->loc == ')');
         *rest = tok->next; // skip ")"

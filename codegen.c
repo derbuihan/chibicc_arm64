@@ -69,6 +69,11 @@ void gen_stmt(Node *node) {
             gen_expr(node->lhs);
             printf("    b L.return\n");
             return;
+        case ND_BLOCK:
+            for (Node *n = node->body; n; n=n->next) {
+                gen_stmt(n);
+            }
+            return;
         case ND_EXPR_STMT:
             gen_expr(node->lhs);
             return;
@@ -91,9 +96,7 @@ void code_gen(Function *prog) {
     printf("    mov x29, sp\n");
     printf("    sub sp, sp, %d\n", prog->stack_size);
 
-    for (Node *n = prog->body; n; n=n->next) {
-        gen_stmt(n);
-    }
+    gen_stmt(prog->body);
 
     printf("L.return:\n");
     printf("    mov sp, x29\n");
