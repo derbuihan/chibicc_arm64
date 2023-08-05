@@ -65,6 +65,7 @@ Node *program(Token **rest, Token *tok) {
 Node *stmt(Token **rest, Token *tok) {
     if (!memcmp(tok->loc, "return", 6)) {
         Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
+        assert(*tok->loc == ';');
         *rest = tok->next; // skip ";"
         return node;
     }
@@ -77,6 +78,7 @@ Node *stmt(Token **rest, Token *tok) {
 // expr-stmt = expr ";"
 Node *expr_stmt(Token **rest, Token *tok) {
     Node *node = new_node( ND_EXPR_STMT, expr(&tok, tok), NULL);
+    assert(*tok->loc == ';');
     *rest = tok->next; // skip ";"
     return node;
 }
@@ -255,6 +257,7 @@ Node *unary(Token **rest, Token *tok) {
 Node *primary(Token **rest, Token *tok) {
     if (*(tok->loc) == '(') {
         Node *node = expr(&tok, tok->next);
+        assert(*tok->loc == ')');
         *rest = tok->next; // skip ")"
         return node;
     }
