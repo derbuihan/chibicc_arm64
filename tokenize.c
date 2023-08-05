@@ -29,9 +29,17 @@ Token *tokenizer(char *p) {
             continue;
         }
 
-        if ('a' <= *p && *p <= 'z') {
-            Token *tok = new_token(TK_IDENT, p, p + 1);
-            p += tok->len;
+        if (('a' <= *p && *p <= 'z')
+            || ('A' <= *p && *p <= 'Z')
+            || (*p == '_')) {
+            char *q = p;
+            do {
+                p++;
+            }while(('a' <= *p && *p <= 'z')
+                || ('A' <= *p && *p <= 'Z')
+                || (*p == '_')
+                || ('0' <= *p && *p <= '9'));
+            Token *tok = new_token(TK_IDENT, q, p);
             cur->next = tok;
             cur = cur->next;
             continue;

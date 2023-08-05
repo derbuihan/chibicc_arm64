@@ -11,11 +11,11 @@ void gen_expr(Node *node) {
             printf("    neg w0, w0\n");
             return;
         case ND_VAR:
-            printf("    sub x0, x29, %d\n", (node->name - 'a' + 1) * 16);
+            printf("    sub x0, x29, %d\n", node->var->offset);
             printf("    ldr w0, [x0]\n");
             return;
         case ND_ASSIGN:
-            printf("    sub x0, x29, %d\n", (node->lhs->name - 'a' + 1) * 16);
+            printf("    sub x0, x29, %d\n", node->lhs->var->offset);
             printf("    str x0, [sp, -16]!\n");
 
             gen_expr(node->rhs);
@@ -63,15 +63,22 @@ void gen_expr(Node *node) {
     }
 }
 
-void code_gen(Node *node) {
+void code_gen(Function *prog) {
+    int offset = 0;
+    for (Obj *var = prog->locals; var; var = var->next) {
+        offset += 32;
+        var->offset = -offset;
+    }
+    prog->stack_size = (offset + 16 - 1) / 16 * 16;
+
     printf("    .globl _main\n");
     printf("    .p2align 2\n");
     printf("_main:\n");
 
     printf("    stp x29, x30, [sp, -16]!\n");
     printf("    mov x29, sp\n");
-    printf("    sub sp, sp, 416\n");
-    for (Node *n = node; n; n = n->next) {
+    printf("    sub sp, sp, %d\n", prog->stack_size);
+    for (Node *n = prog->body; n; n = n->next) {
         if (n->kind == ND_EXPR_STMT) {
             gen_expr(n->lhs);
         }

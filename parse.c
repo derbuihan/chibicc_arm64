@@ -1,5 +1,7 @@
 #include "chibicc.h"
 
+Obj *locals;
+
 static Node *program(Token **rest, Token *tok);
 
 static Node *stmt(Token **rest, Token *tok);
@@ -33,16 +35,17 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 // program = stmt*
-// stmt = expr ";"
+// stmt = expr-stmt
+// expr-stmt = expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-")? primary
+// unary = ("+" | "-") unary | primary
 // primary = "(" expr ")" | ident | num
-// ident = 'a', 'b', ..., 'z'
+// ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 // num = 1, 2, 3, ...
 
 // program = stmt*
@@ -215,7 +218,7 @@ Node *mul(Token **rest, Token *tok) {
     }
 }
 
-// unary = ("+" | "-")? primary
+// unary = ("+" | "-") unary | primary
 Node *unary(Token **rest, Token *tok) {
     if (*(tok->loc) == '+') {
         Node *node = unary(&tok, tok->next);
@@ -259,10 +262,26 @@ Node *primary(Token **rest, Token *tok) {
     }
 }
 
-// ident = 'a', 'b', ..., 'z'
+// ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 Node *ident(Token **rest, Token *tok) {
+    // find var in locals
+    Obj *var;
+    for (var = locals; var; var = var->next) {
+        if (strlen(var->name) == tok->len && !strncmp(var->name, tok->loc, tok->len)) {
+            break;
+        }
+    }
+
+    // create var if not found
+    if(!var) {
+        var = calloc(1, sizeof(Obj));
+        var->name = strndup(tok->loc, tok->len);
+        var->next = locals;
+        locals = var;
+    }
+
     Node *node = new_node(ND_VAR, NULL, NULL);
-    node->name = *(tok->loc);
+    node->var = var;
 
     *rest = tok->next;
     return node;
@@ -277,7 +296,12 @@ Node *num(Token **rest, Token *tok) {
     return node;
 }
 
-Node *parse(Token *tok) {
+Function *parse(Token *tok) {
     Node *node = program(&tok, tok);
-    return node;
+
+    Function *prog = calloc(1, sizeof(Function));
+    prog->body = node;
+    prog->locals = locals;
+
+    return prog;
 }

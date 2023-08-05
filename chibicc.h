@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct Node Node;
 
 // tokenizer
 
@@ -26,6 +27,20 @@ Token *tokenizer(char *p);
 
 // parser
 
+typedef struct Obj Obj;
+struct Obj {
+    Obj *next;
+    char *name; // Variable name
+    int offset; // Offset from RBP
+};
+
+typedef struct Function Function;
+struct Function {
+    Node *body;
+    Obj *locals;
+    int stack_size;
+};
+
 typedef enum {
     ND_ADD,       // +
     ND_SUB,       // -
@@ -42,18 +57,17 @@ typedef enum {
     ND_NUM,       // Integer
 } NodeKind;
 
-typedef struct Node Node;
 struct Node {
     NodeKind kind; // Node kind
     Node *next;    // Next node
     Node *lhs;     // Left node
     Node *rhs;     // Right node
-    char name;     // Variable name. Used if kind is ND_VAR.
+    Obj *var;     // Variable name. Used if kind is ND_VAR.
     int val;       // Value. Used if kind is ND_NUM.
 };
 
-Node *parse(Token *tok);
+Function *parse(Token *tok);
 
 // codegen
 
-void code_gen(Node *node);
+void code_gen(Function *prog);
