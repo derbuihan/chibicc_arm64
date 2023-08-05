@@ -63,6 +63,18 @@ void gen_expr(Node *node) {
     }
 }
 
+void gen_stmt(Node *node) {
+    switch (node->kind) {
+        case ND_RETURN:
+            gen_expr(node->lhs);
+            printf("    b L.return\n");
+            return;
+        case ND_EXPR_STMT:
+            gen_expr(node->lhs);
+            return;
+    }
+}
+
 void code_gen(Function *prog) {
     int offset = 0;
     for (Obj *var = prog->locals; var; var = var->next) {
@@ -78,12 +90,12 @@ void code_gen(Function *prog) {
     printf("    stp x29, x30, [sp, -16]!\n");
     printf("    mov x29, sp\n");
     printf("    sub sp, sp, %d\n", prog->stack_size);
-    for (Node *n = prog->body; n; n = n->next) {
-        if (n->kind == ND_EXPR_STMT) {
-            gen_expr(n->lhs);
-        }
+
+    for (Node *n = prog->body; n; n=n->next) {
+        gen_stmt(n);
     }
 
+    printf("L.return:\n");
     printf("    mov sp, x29\n");
     printf("    ldp x29, x30, [sp], 16\n");
     printf("    ret\n");

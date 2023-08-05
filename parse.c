@@ -6,6 +6,8 @@ static Node *program(Token **rest, Token *tok);
 
 static Node *stmt(Token **rest, Token *tok);
 
+static Node *expr_stmt(Token **rest, Token *tok);
+
 static Node *expr(Token **rest, Token *tok);
 
 static Node *assign(Token **rest, Token *tok);
@@ -35,7 +37,7 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 // program = stmt*
-// stmt = expr-stmt
+// stmt = "return" expr ";" | expr-stmt
 // expr-stmt = expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -59,14 +61,22 @@ Node *program(Token **rest, Token *tok) {
     return head.next;
 }
 
-// stmt = expr ";"
+// stmt = "return" expr ";" | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
-    Node *node = new_node(
-            ND_EXPR_STMT,
-            expr(&tok, tok),
-            NULL
-    );
+    if (!memcmp(tok->loc, "return", 6)) {
+        Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
+        *rest = tok->next; // skip ";"
+        return node;
+    }
 
+    Node *node = expr_stmt(&tok, tok);
+    *rest = tok;
+    return node;
+}
+
+// expr-stmt = expr ";"
+Node *expr_stmt(Token **rest, Token *tok) {
+    Node *node = new_node( ND_EXPR_STMT, expr(&tok, tok), NULL);
     *rest = tok->next; // skip ";"
     return node;
 }
