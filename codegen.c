@@ -1,5 +1,6 @@
 #include "chibicc.h"
 
+static int count = 1;
 
 void gen_expr(Node *node) {
     switch (node->kind) {
@@ -22,6 +23,8 @@ void gen_expr(Node *node) {
             printf("    ldr x1, [sp], 16\n");
             printf("    str w0, [x1]\n");
             return;
+        default:
+            break;
     }
 
     gen_expr(node->rhs);
@@ -59,7 +62,7 @@ void gen_expr(Node *node) {
             printf("    cset w0, LE\n");
             return;
         default:
-            return;
+            break;
     }
 }
 
@@ -67,8 +70,24 @@ void gen_stmt(Node *node) {
     switch (node->kind) {
         case ND_RETURN:
             gen_expr(node->lhs);
-            printf("    b L.return\n");
+            printf("    b .L.return\n");
             return;
+        case ND_IF: {
+            int c = count++;
+
+            gen_expr(node->cond);
+            printf("    cbz w0, .L.else.%d\n", c);
+
+            gen_stmt(node->then);
+            printf("    b .L.end.%d\n", c);
+
+            printf(".L.else.%d:\n", c);
+            if (node->els) {
+                gen_stmt(node->els);
+            }
+            printf(".L.end.%d:\n", c);
+            return;
+        }
         case ND_BLOCK:
             for (Node *n = node->body; n; n=n->next) {
                 gen_stmt(n);
@@ -77,6 +96,8 @@ void gen_stmt(Node *node) {
         case ND_EXPR_STMT:
             gen_expr(node->lhs);
             return;
+        default:
+            break;
     }
 }
 
@@ -98,7 +119,7 @@ void code_gen(Function *prog) {
 
     gen_stmt(prog->body);
 
-    printf("L.return:\n");
+    printf(".L.return:\n");
     printf("    mov sp, x29\n");
     printf("    ldp x29, x30, [sp], 16\n");
     printf("    ret\n");

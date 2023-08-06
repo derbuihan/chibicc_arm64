@@ -73,5 +73,22 @@ test 3 '{1; 2; return 3;}'
 test 1 '{return 1; return 2; return 3;}'
 test 10 '{a=5; return b=10;}'
 
+test 3 '{ { 1; {2;} return 3;} }'
+test 5 '{ ;;; return 5;}'
 
+test 3 '{if (0) return 2; return 3;}'
+test 3 '{if (1-1) return 2; return 3;}'
+test 2 '{if (1) return 2; return 3;}'
+test 2 '{if (2-1) return 2; return 3;}'
+test 4 '{if (0) {1; 2; return 3;} else {return 4;}}'
+test 3 '{if (1) {1; 2; return 3;} else {return 4;}}'
+
+test 6 '{if (0) { if (0) {return 3;} else {return 4;} } else { if (0) {return 5;} else {return 6;} } return 7; }'
+test 5 '{if (0) { if (0) {return 3;} else {return 4;} } else { if (1) {return 5;} else {return 6;} } return 7; }'
+test 6 '{if (0) { if (1) {return 3;} else {return 4;} } else { if (0) {return 5;} else {return 6;} } return 7; }'
+test 4 '{if (1) { if (0) {return 3;} else {return 4;} } else { if (0) {return 5;} else {return 6;} } return 7; }'
+test 5 '{if (0) { if (1) {return 3;} else {return 4;} } else { if (1) {return 5;} else {return 6;} } return 7; }'
+test 4 '{if (1) { if (0) {return 3;} else {return 4;} } else { if (1) {return 5;} else {return 6;} } return 7; }'
+test 3 '{if (1) { if (1) {return 3;} else {return 4;} } else { if (0) {return 5;} else {return 6;} } return 7; }'
+test 3 '{if (1) { if (1) {return 3;} else {return 4;} } else { if (1) {return 5;} else {return 6;} } return 7; }'
 

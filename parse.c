@@ -39,9 +39,12 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 // program = stmt*
-// stmt = "return" expr ";" | "{" compound-stmt | expr-stmt
+// stmt = "return" expr ";"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "{" compound-stmt
+//      | expr-stmt
 // compound-stmt = stmt* "}"
-// expr-stmt = expr ";"
+// expr-stmt = expr? ";"
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
@@ -64,12 +67,33 @@ Node *program(Token **rest, Token *tok) {
     return head.next;
 }
 
-// stmt = "return" expr ";" | "{" compound-stmt | expr-stmt
+// stmt = "return" expr ";"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "{" compound-stmt
+//      | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
     if (tok->len ==6 && !memcmp(tok->loc, "return", 6)){
         Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
         assert(*tok->loc == ';');
         *rest = tok->next; // skip ";"
+        return node;
+    }
+
+    if (tok->len == 2 && !memcmp(tok->loc, "if", 2)) {
+        Node *node = new_node(ND_IF, NULL, NULL);
+        tok = tok->next; // skip "if"
+
+        assert(*tok->loc == '(');
+        node->cond = expr(&tok, tok->next);
+
+        assert(*tok->loc == ')');
+        node->then = stmt(&tok, tok->next);
+
+        if (tok->len == 4 && !memcmp(tok->loc, "else", 4)) {
+            node->els = stmt(&tok, tok->next);
+        }
+
+        *rest = tok;
         return node;
     }
 
@@ -102,8 +126,13 @@ Node *compound_stmt(Token **rest, Token *tok) {
     return node;
 }
 
-// expr-stmt = expr ";"
+// expr-stmt = expr? ";"
 Node *expr_stmt(Token **rest, Token *tok) {
+    if (tok->len == 1 && *tok->loc == ';') {
+        *rest = tok->next;
+        return new_node(ND_BLOCK, NULL, NULL);
+    }
+
     Node *node = new_node( ND_EXPR_STMT, expr(&tok, tok), NULL);
     assert(*tok->loc == ';');
     *rest = tok->next; // skip ";"
