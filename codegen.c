@@ -68,19 +68,17 @@ void gen_expr(Node *node) {
 
 void gen_stmt(Node *node) {
     switch (node->kind) {
-        case ND_RETURN:
+        case ND_RETURN: {
             gen_expr(node->lhs);
             printf("    b .L.return\n");
             return;
+        }
         case ND_IF: {
             int c = count++;
-
             gen_expr(node->cond);
             printf("    cbz w0, .L.else.%d\n", c);
-
             gen_stmt(node->then);
             printf("    b .L.end.%d\n", c);
-
             printf(".L.else.%d:\n", c);
             if (node->els) {
                 gen_stmt(node->els);
@@ -88,16 +86,34 @@ void gen_stmt(Node *node) {
             printf(".L.end.%d:\n", c);
             return;
         }
-        case ND_BLOCK:
-            for (Node *n = node->body; n; n=n->next) {
+        case ND_FOR: {
+            int c = count++;
+            if (node->init) {
+                gen_stmt(node->init);
+            }
+            printf(".L.begin.%d:\n", c);
+            if (node->cond) {
+                gen_expr(node->cond);
+                printf("    cbz w0, .L.end.%d\n", c);
+            }
+            gen_stmt(node->then);
+            if (node->inc) {
+                gen_expr(node->inc);
+            }
+            printf("    b .L.begin.%d\n", c);
+            printf(".L.end.%d:\n", c);
+            return;
+        }
+        case ND_BLOCK: {
+            for (Node *n = node->body; n; n = n->next) {
                 gen_stmt(n);
             }
             return;
-        case ND_EXPR_STMT:
+        }
+        case ND_EXPR_STMT: {
             gen_expr(node->lhs);
             return;
-        default:
-            break;
+        }
     }
 }
 

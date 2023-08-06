@@ -29,26 +29,21 @@ Token *tokenizer(char *p) {
             continue;
         }
 
-        if (('a' <= *p && *p <= 'z')
-            || ('A' <= *p && *p <= 'Z')
+        if (('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z')
             || (*p == '_')) {
             char *q = p;
             do {
                 p++;
-            }while(('a' <= *p && *p <= 'z')
-                || ('A' <= *p && *p <= 'Z')
-                || (*p == '_')
-                || ('0' <= *p && *p <= '9'));
+            }while(('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z')
+                || (*p == '_') || ('0' <= *p && *p <= '9'));
             Token *tok = new_token(TK_IDENT, q, p);
             cur->next = tok;
             cur = cur->next;
             continue;
         }
 
-        if (memcmp(p, "==", 2) == 0
-            || memcmp(p, "!=", 2) == 0
-            || memcmp(p, "<=", 2) == 0
-            || memcmp(p, ">=", 2) == 0) {
+        if (memcmp(p, "==", 2) == 0 || memcmp(p, "!=", 2) == 0
+            || memcmp(p, "<=", 2) == 0 || memcmp(p, ">=", 2) == 0) {
             Token *tok = new_token(TK_PUNCT, p, p + 2);
             p += tok->len;
             cur->next = tok;
@@ -69,7 +64,7 @@ Token *tokenizer(char *p) {
     Token *tok = new_token(TK_EOF, p, p);
     cur->next = tok;
 
-    static char *kw[] = {"return", "if", "else"};
+    static char *kw[] = {"return", "if", "else", "for", "while"};
     for (Token *t = head.next; t->kind != TK_EOF; t = t->next) {
         for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++){
             if (!memcmp(t->loc, kw[i], t->len) && kw[i][t->len] == '\0') {

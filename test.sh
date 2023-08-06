@@ -92,3 +92,12 @@ test 4 '{if (1) { if (0) {return 3;} else {return 4;} } else { if (1) {return 5;
 test 3 '{if (1) { if (1) {return 3;} else {return 4;} } else { if (0) {return 5;} else {return 6;} } return 7; }'
 test 3 '{if (1) { if (1) {return 3;} else {return 4;} } else { if (1) {return 5;} else {return 6;} } return 7; }'
 
+test 3 'for (;;) return 3;'
+test 3 '{ for (;;) { return 3; } return 5; }'
+test 55 '{i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j;}'
+test 55 '{i=0; j=0; for (i=0; i<=10; i=i+1) {j=i+j;} return j;}'
+
+test 10 '{i=0; while (i<10) {i = i+1;} return i;}'
+test 55 '{i=0; sum=0; while (i<10) {i = i+1; sum=sum+i;} return sum;}'
+test 97 '{ for (p = 2; p < 100; p = p + 1) { is_prime = i = 1; while (i * i <= p) { i = i + 1; for (j = 1; i * j <= p; j = j + 1) { if (i * j == p) { is_prime = 0; } } } if (is_prime) { ans = p; } } return ans; }'
+

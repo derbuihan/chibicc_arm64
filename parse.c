@@ -41,6 +41,8 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 // program = stmt*
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
+//      | "while" "(" expr ")" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
 // compound-stmt = stmt* "}"
@@ -69,6 +71,8 @@ Node *program(Token **rest, Token *tok) {
 
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
+//      | "while" "(" expr ")" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
@@ -92,6 +96,44 @@ Node *stmt(Token **rest, Token *tok) {
         if (tok->len == 4 && !memcmp(tok->loc, "else", 4)) {
             node->els = stmt(&tok, tok->next);
         }
+
+        *rest = tok;
+        return node;
+    }
+
+    if (tok->len == 3 && !memcmp(tok->loc, "for", 3)) {
+        Node *node = new_node(ND_FOR, NULL, NULL);
+        tok = tok->next; // skip "for"
+
+        assert(*tok->loc == '(');
+        node->init = expr_stmt(&tok, tok->next);
+
+        if (*tok->loc != ';') {
+            node->cond = expr(&tok, tok);
+        }
+        assert(*tok->loc == ';');
+        tok = tok->next;
+
+        if (*tok->loc != ')') {
+            node->inc = expr(&tok, tok);
+        }
+        assert(*tok->loc == ')');
+
+        node->then = stmt(&tok, tok->next);
+
+        *rest = tok;
+        return node;
+    }
+
+    if (tok->len == 5 && !memcmp(tok->loc, "while", 5)) {
+        Node *node = new_node(ND_FOR, NULL, NULL);
+        tok = tok->next; // skip "while"
+
+        assert(*tok->loc == '(');
+        node->cond = expr(&tok, tok->next);
+
+        assert(*tok->loc == ')');
+        node ->then = stmt(&tok, tok->next);
 
         *rest = tok;
         return node;

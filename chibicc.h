@@ -56,6 +56,7 @@ typedef enum {
     ND_ASSIGN,    // =
     ND_RETURN,    // "return"
     ND_IF,        // "if"
+    ND_FOR,       // "for" or "while"
     ND_BLOCK,     // { ... }
     ND_EXPR_STMT, // Expression statement
     ND_VAR,       // Variable
@@ -68,10 +69,12 @@ struct Node {
     Node *lhs;     // Left node
     Node *rhs;     // Right node
 
-    // IF
+    // IF or FOR
     Node *cond;
     Node *then;
     Node *els;
+    Node *init;
+    Node *inc;
 
     // BLOCK
     Node *body;    // Block or statement body
