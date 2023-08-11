@@ -53,7 +53,7 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "&" | "*") unary | primary
 // primary = "(" expr ")" | ident | num
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 // num = 1, 2, 3, ...
@@ -328,7 +328,7 @@ Node *mul(Token **rest, Token *tok) {
     }
 }
 
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "&" | "*") unary | primary
 Node *unary(Token **rest, Token *tok) {
     if (tok->len == 1 && *tok->loc == '+') {
         Node *node = unary(&tok, tok->next);
@@ -339,6 +339,26 @@ Node *unary(Token **rest, Token *tok) {
     if (tok->len == 1 && *tok->loc == '-') {
         Node *node = new_node(
                 ND_NEG,
+                unary(&tok, tok->next),
+                NULL
+        );
+        *rest = tok;
+        return node;
+    }
+
+    if (tok->len == 1 && *tok->loc == '&') {
+        Node *node = new_node(
+                ND_ADDR,
+                unary(&tok, tok->next),
+                NULL
+        );
+        *rest = tok;
+        return node;
+    }
+
+    if (tok->len == 1 && *tok->loc == '*') {
+        Node *node = new_node(
+                ND_DEREF,
                 unary(&tok, tok->next),
                 NULL
         );

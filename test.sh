@@ -101,3 +101,12 @@ test 10 '{i=0; while (i<10) {i = i+1;} return i;}'
 test 55 '{i=0; sum=0; while (i<10) {i = i+1; sum=sum+i;} return sum;}'
 test 97 '{ for (p = 2; p < 100; p = p + 1) { is_prime = i = 1; while (i * i <= p) { i = i + 1; for (j = 1; i * j <= p; j = j + 1) { if (i * j == p) { is_prime = 0; } } } if (is_prime) { ans = p; } } return ans; }'
 
+test 3 '{x=3; return *&x;}'
+test 3 '{ x=3; y=&x; z=&y; return **z; }'
+test 5 '{ x=3; y=5; return *(&x + 32); }'
+test 3 '{ x=3; y=5; return *(&y - 32); }'
+test 5 '{ x=3; y=&x; *y=5; return x; }'
+test 7 '{ x=3; y=5; *(&x + 32)=7; return y; }'
+test 7 '{ x=3; y=5; *(&y - 32)=7; return x; }'
+
+echo "OK"
