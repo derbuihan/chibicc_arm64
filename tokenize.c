@@ -9,6 +9,10 @@ Token *new_token(TokenKind kind, char *start, char *end) {
     return tok;
 }
 
+bool equal(Token *tok, char *op) {
+    return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
+}
+
 Token *tokenizer(char *p) {
     Token head = {};
     Token *cur = &head;
@@ -67,7 +71,7 @@ Token *tokenizer(char *p) {
     static char *kw[] = {"return", "if", "else", "for", "while", "int"};
     for (Token *t = head.next; t->kind != TK_EOF; t = t->next) {
         for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++){
-            if (!memcmp(t->loc, kw[i], t->len) && kw[i][t->len] == '\0') {
+            if (equal(t, kw[i])) {
                 t->kind = TK_KEYWORD;
             }
         }

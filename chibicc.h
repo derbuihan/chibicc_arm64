@@ -1,8 +1,9 @@
-#include <stdio.h>
+#include <assert.h>
 #include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 typedef struct Type Type;
 typedef struct Node Node;
@@ -25,6 +26,8 @@ struct Token {
     char *loc;
     int len;
 };
+
+bool equal(Token *tok, char *op);
 
 Token *tokenizer(char *p);
 

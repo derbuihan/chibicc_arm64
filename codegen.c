@@ -171,4 +171,3 @@ void code_gen(Function *prog) {
     printf("    ldp x29, x30, [sp], 16\n");
     printf("    ret\n");
 }
-
