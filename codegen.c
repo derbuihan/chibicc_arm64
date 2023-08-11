@@ -150,7 +150,7 @@ void gen_stmt(Node *node) {
 void code_gen(Function *prog) {
     int offset = 0;
     for (Obj *var = prog->locals; var; var = var->next) {
-        offset += 32;
+        offset += 16;
         var->offset = -offset;
     }
     prog->stack_size = (offset + 16 - 1) / 16 * 16;

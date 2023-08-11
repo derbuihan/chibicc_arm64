@@ -8,6 +8,12 @@ static Node *stmt(Token **rest, Token *tok);
 
 static Node *compound_stmt(Token **rest, Token *tok);
 
+static Node *declaration(Token **rest, Token *tok);
+
+static Type *declarator(Token **rest, Token *tok, Type *ty);
+
+static Type *declspec(Token **rest, Token *tok);
+
 static Node *expr_stmt(Token **rest, Token *tok);
 
 static Node *expr(Token **rest, Token *tok);
@@ -38,6 +44,24 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
     return node;
 }
 
+static Obj *find_var(Token *tok) {
+    for (Obj *var = locals; var; var = var->next) {
+        if (strlen(var->name) == tok->len && !strncmp(tok->loc, var->name, tok->len)) {
+            return var;
+        }
+    }
+    return NULL;
+}
+
+static Obj *new_lvar(char *name, Type *ty) {
+    Obj *var = calloc(1, sizeof(Obj));
+    var->name = name;
+    var->ty = ty;
+    var->next = locals;
+    locals = var;
+    return var;
+}
+
 // program = stmt*
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -45,7 +69,10 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
 //      | "while" "(" expr ")" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
-// compound-stmt = stmt* "}"
+// compound-stmt = (declaration | stmt)* "}"
+// declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declarator = "*"* ident
+// declspec = "int"
 // expr-stmt = expr? ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -76,7 +103,7 @@ Node *program(Token **rest, Token *tok) {
 //      | "{" compound-stmt
 //      | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
-    if (tok->len ==6 && !memcmp(tok->loc, "return", 6)){
+    if (tok->len ==6 && !memcmp(tok->loc, "return", tok->len)){
         Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
         assert(*tok->loc == ';');
         *rest = tok->next; // skip ";"
@@ -150,22 +177,82 @@ Node *stmt(Token **rest, Token *tok) {
     return node;
 }
 
-// compound-stmt = stmt* "}"
+// compound-stmt = (declaration | stmt)* "}"
 Node *compound_stmt(Token **rest, Token *tok) {
+    Node *node = new_node(ND_BLOCK, NULL, NULL);
+
     Node head = {};
     Node *cur = &head;
+    while (tok->len != 1 || *tok->loc != '}') {
+        if (tok->len == 3 && memcmp(tok->loc, "int", tok->len) == 0) {
+            cur->next = declaration(&tok, tok);
+        } else {
+            cur->next = stmt(&tok, tok);
+        }
+        cur = cur->next;
+        add_type(cur);
+    }
+    node->body = head.next;
+    assert(*tok->loc == '}');
+    *rest = tok->next;
+    return node;
+}
 
-    while (!(tok->len == 1 && *tok->loc == '}')) {
-        cur->next = stmt(&tok, tok);
+// declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+Node *declaration(Token **rest, Token *tok){
+    Type *basety = declspec(&tok, tok);
+
+    Node head = {};
+    Node *cur = &head;
+    int i = 0;
+
+    while (*tok->loc != ';' || tok->len != 1) {
+        if (i++ > 0) {
+            assert(*tok->loc == ',');
+            *rest = tok->next; // skip ','
+        }
+        Type *ty = declarator(&tok, tok, basety);
+        assert(ty->name->kind == TK_IDENT);
+
+        Obj *var = new_lvar(strndup(ty->name->loc, ty->name->len), ty);
+        if (*tok->loc != '=' || tok->len != 1) {
+            continue;
+        }
+
+        Node *lhs = new_node(ND_VAR, NULL, NULL);
+        lhs->var = var;
+        Node *rhs = assign(&tok, tok->next);
+        Node *node = new_node(ND_ASSIGN, lhs, rhs);
+        cur->next = new_node(ND_EXPR_STMT, node, NULL);
         cur = cur->next;
     }
 
     Node *node = new_node(ND_BLOCK, NULL, NULL);
     node->body = head.next;
-
-    assert(*tok->loc == '}');
-    *rest = tok->next;
+    *rest = tok->next; // skip ';'
     return node;
+}
+
+// declarator = "*"* ident
+Type *declarator(Token **rest, Token *tok, Type *ty) {
+    while (tok->len == 1 && *tok->loc == '*') {
+        ty = pointer_to(ty);
+        tok = tok->next;
+        *rest = tok;
+    }
+
+    assert(tok->kind == TK_IDENT);
+
+    ty->name = tok;
+    *rest = tok->next;
+    return ty;
+}
+
+// declspec = "int"
+Type *declspec(Token **rest, Token *tok) {
+    assert(memcmp(tok->loc, "int", tok->len) == 0);
+    *rest = tok->next; // skip "int";
+    return ty_int;
 }
 
 // expr-stmt = expr? ";"
@@ -280,19 +367,73 @@ Node *add(Token **rest, Token *tok) {
 
     for (;;) {
         if (tok->len == 1 && *tok->loc == '+') {
-            node = new_node(
-                    ND_ADD,
-                    node,
-                    mul(&tok, tok->next)
-            );
+            Node *lhs = node;
+            Node *rhs = mul(&tok, tok->next);
+            add_type(lhs);
+            add_type(rhs);
+
+            // num + num
+            if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+                node = new_node(ND_ADD, lhs, rhs);
+                continue;
+            }
+
+            // num + ptr -> ptr + num
+            if (lhs->ty->kind == TY_INT && rhs->ty->base) {
+                Node *tmp = lhs;
+                lhs = rhs;
+                rhs = tmp;
+            }
+
+            // ptr + num
+            if (lhs->ty->base && rhs->ty->kind == TY_INT) {
+                Node *num_node = new_node( ND_NUM, NULL, NULL );
+                num_node->val = 16;
+                node = new_node(ND_ADD,
+                                lhs,
+                                new_node( ND_MUL, rhs, num_node ));
+                continue;
+            }
+
+            // TODO: ERR ptr + ptr
+
             continue;
         }
+
         if (tok->len == 1 && *tok->loc == '-') {
-            node = new_node(
-                    ND_SUB,
-                    node,
-                    mul(&tok, tok->next)
-            );
+            Node *lhs = node;
+            Node *rhs = mul(&tok, tok->next);
+            add_type(lhs);
+            add_type(rhs);
+
+            // num - num
+            if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+                node = new_node(ND_SUB, lhs, rhs);
+                continue;
+            }
+
+            // ptr - num = num
+            if (lhs->ty->base && rhs->ty->kind == TY_INT) {
+                Node *num_node = new_node( ND_NUM, NULL, NULL );
+                num_node->val = 16;
+                node = new_node(ND_SUB,
+                                lhs,
+                                new_node(ND_MUL, rhs, num_node));
+                continue;
+            }
+
+            // ptr - ptr = num
+            if (lhs->ty->base && rhs->ty->base) {
+                Node *num_node = new_node( ND_NUM, NULL, NULL );
+                num_node->val = 16;
+                node = new_node(ND_DIV,
+                                new_node( ND_SUB, lhs, rhs ),
+                                num_node);
+                continue;
+            }
+
+            // TODO: ERR num - ptr
+
             continue;
         }
 
@@ -396,19 +537,10 @@ Node *primary(Token **rest, Token *tok) {
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 Node *ident(Token **rest, Token *tok) {
     // find var in locals
-    Obj *var;
-    for (var = locals; var; var = var->next) {
-        if (strlen(var->name) == tok->len && !strncmp(var->name, tok->loc, tok->len)) {
-            break;
-        }
-    }
+    Obj *var = find_var(tok);
 
-    // create var if not found
     if(!var) {
-        var = calloc(1, sizeof(Obj));
-        var->name = strndup(tok->loc, tok->len);
-        var->next = locals;
-        locals = var;
+        // TODO: ERR var is not defined
     }
 
     Node *node = new_node(ND_VAR, NULL, NULL);

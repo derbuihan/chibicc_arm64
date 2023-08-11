@@ -64,7 +64,7 @@ Token *tokenizer(char *p) {
     Token *tok = new_token(TK_EOF, p, p);
     cur->next = tok;
 
-    static char *kw[] = {"return", "if", "else", "for", "while"};
+    static char *kw[] = {"return", "if", "else", "for", "while", "int"};
     for (Token *t = head.next; t->kind != TK_EOF; t = t->next) {
         for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++){
             if (!memcmp(t->loc, kw[i], t->len) && kw[i][t->len] == '\0') {

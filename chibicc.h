@@ -4,13 +4,14 @@
 #include <string.h>
 #include <assert.h>
 
+typedef struct Type Type;
 typedef struct Node Node;
 
 // tokenizer
 
 typedef enum {
-    TK_PUNCT,
     TK_IDENT,
+    TK_PUNCT,
     TK_KEYWORD,
     TK_NUM,
     TK_EOF,
@@ -33,6 +34,7 @@ typedef struct Obj Obj;
 struct Obj {
     Obj *next;
     char *name; // Variable name
+    Type *ty;   // Type
     int offset; // Offset from RBP
 };
 
@@ -68,24 +70,45 @@ typedef enum {
 struct Node {
     NodeKind kind; // Node kind
     Node *next;    // Next node
+    Type *ty;      // Type, e.g. int or pointer to int
+
     Node *lhs;     // Left node
     Node *rhs;     // Right node
 
-    // IF or FOR
+    // "if" or "for" statement
     Node *cond;
     Node *then;
     Node *els;
     Node *init;
     Node *inc;
 
-    // BLOCK
+    // Block
     Node *body;    // Block or statement body
 
-    Obj *var;     // Variable name. Used if kind is ND_VAR.
+    Obj *var;      // Variable name. Used if kind is ND_VAR.
     int val;       // Value. Used if kind is ND_NUM.
 };
 
 Function *parse(Token *tok);
+
+// type
+
+typedef enum {
+    TY_INT,
+    TY_PTR,
+} TypeKind;
+
+struct Type {
+    TypeKind kind; // Type kind
+    Type *base;    // Pointer
+    Token *name;   // Identifier
+};
+
+extern Type *ty_int;
+
+Type *pointer_to(Type *base);
+
+void add_type(Node *node);
 
 // codegen
 
