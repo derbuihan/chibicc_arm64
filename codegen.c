@@ -53,6 +53,10 @@ void gen_expr(Node *node) {
             pop("x1");
             printf("    str x0, [x1]\n");
             return;
+        case ND_FUNCALL:
+            gen_expr(node->args);
+            printf("    bl %s\n", node->funcname);
+            return;
         default:
             break;
     }

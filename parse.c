@@ -34,6 +34,8 @@ static Node *primary(Token **rest, Token *tok);
 
 static Node *ident(Token **rest, Token *tok);
 
+static Node *funcall(Token **rest, Token *tok);
+
 static Node *num(Token **rest, Token *tok);
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
@@ -81,8 +83,9 @@ static Obj *new_lvar(char *name, Type *ty) {
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-" | "&" | "*") unary | primary
-// primary = "(" expr ")" | ident | num
+// primary = "(" expr ")" | ident func-args? | num
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
+// func-args = "(" (assign ("," assign)*)? ")"
 // num = 1, 2, 3, ...
 
 // program = stmt*
@@ -512,12 +515,18 @@ Node *unary(Token **rest, Token *tok) {
     return node;
 }
 
-// primary = "(" expr ")" | ident | num
+// primary = "(" expr ")" | ident func-args? | num
 Node *primary(Token **rest, Token *tok) {
     if (equal(tok, "(")) {
         Node *node = expr(&tok, tok->next);
         assert(equal(tok, ")"));
         *rest = tok->next; // skip ")"
+        return node;
+    }
+
+    if (equal(tok->next, "(")) {
+        Node *node = funcall(&tok, tok);
+        *rest = tok;
         return node;
     }
 
@@ -547,6 +556,18 @@ Node *ident(Token **rest, Token *tok) {
     node->var = var;
 
     *rest = tok->next;
+    return node;
+}
+
+// funcall = ident func-args?
+// func-args = "(" (assign ("," assign)*)? ")"
+Node *funcall(Token **rest, Token *tok){
+    Node *node = new_node(ND_FUNCALL, NULL, NULL);
+    node->funcname = strndup(tok->loc, tok->len);
+    node->args = assign(&tok, tok->next->next);
+
+    assert(equal(tok, ")"));
+    *rest = tok->next; // skip ")"
     return node;
 }
 

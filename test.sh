@@ -1,6 +1,13 @@
+#!/bin/bash
+
+cat << EOF | gcc -xc -c -o tmp2.o -
+  int add11(int a) {return a + 11;}
+EOF
+
+
 function test() {
   ./chibicc "$2" > tmp.s
-  cc -o tmp tmp.s
+  cc -o tmp tmp.s tmp2.o
   ./tmp
   ret=$?
   [ "$ret" = "$1" ] && echo "ok $2 = $ret" || ( echo "ng $2 != $ret"; exit 1 )
@@ -107,5 +114,7 @@ test 3 '{int x=3; int y=5; return *(&y - 1); }'
 test 5 '{int x=3; int *y=&x; *y=5; return x; }'
 test 7 '{int x=3; int y=5; *(&x + 1)=7; return y; }'
 test 7 '{int x=3; int y=5; *(&y - 1)=7; return x; }'
+
+test 33 '{return _add11(22);}'
 
 echo "OK"
