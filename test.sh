@@ -1,7 +1,12 @@
 #!/bin/bash
 
 cat << EOF | gcc -xc -c -o tmp2.o -
+  int ret11() {return 11;}
   int add11(int a) {return a + 11;}
+  int add2(int a, int b) {return a+b;}
+  int sub2(int a, int b) {return a-b;}
+  int sub3(int a, int b, int c) {return a-b-c;}
+  int add8(int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8) {return a1+a2+a3+a4+a5+a6+a7+a8;}
 EOF
 
 
@@ -115,6 +120,11 @@ test 5 '{int x=3; int *y=&x; *y=5; return x; }'
 test 7 '{int x=3; int y=5; *(&x + 1)=7; return y; }'
 test 7 '{int x=3; int y=5; *(&y - 1)=7; return x; }'
 
-test 33 '{return _add11(22);}'
+test 11 '{return ret11();}'
+test 33 '{return add11(22);}'
+test 33 '{return add2(11, 22);}'
+test 11 '{return sub2(22, 11);}'
+test 11 '{return sub3(44, 22, 11);}'
+test 36 '{return add8(1, 2, 3, 4, 5, 6, 7, 8);}'
 
 echo "OK"

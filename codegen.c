@@ -2,6 +2,7 @@
 
 static int count = 1;
 static int depth = 0;
+static char *argreg[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 
 static void gen_expr(Node *node);
 
@@ -53,10 +54,19 @@ void gen_expr(Node *node) {
       pop("x1");
       printf("    str x0, [x1]\n");
       return;
-    case ND_FUNCALL:
-      gen_expr(node->args);
-      printf("    bl %s\n", node->funcname);
+    case ND_FUNCALL: {
+      int nargs = 0;
+      for (Node *n = node->args; n; n = n->next) {
+        gen_expr(n);
+        push();
+        nargs++;
+      }
+      for (int i = nargs - 1; i >= 0; i--) {
+        pop(argreg[i]);
+      }
+      printf("    bl _%s\n", node->funcname);
       return;
+    }
     default:
       break;
   }

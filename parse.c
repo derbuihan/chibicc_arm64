@@ -472,18 +472,21 @@ Node *primary(Token **rest, Token *tok) {
     return node;
   }
 
+  // function
   if (equal(tok->next, "(")) {
     Node *node = funcall(&tok, tok);
     *rest = tok;
     return node;
   }
 
+  // variable
   if (tok->kind == TK_IDENT) {
     Node *node = ident(&tok, tok);
     *rest = tok;
     return node;
   }
 
+  // number
   if (tok->kind == TK_NUM) {
     Node *node = num(&tok, tok);
     *rest = tok;
@@ -512,10 +515,26 @@ Node *ident(Token **rest, Token *tok) {
 Node *funcall(Token **rest, Token *tok) {
   Node *node = new_node(ND_FUNCALL, NULL, NULL);
   node->funcname = strndup(tok->loc, tok->len);
-  node->args = assign(&tok, tok->next->next);
+  tok = tok->next;
+
+  assert(equal(tok, "("));
+  tok = tok->next;  // skip '('
+
+  Node head = {};
+  Node *cur = &head;
+  while (!equal(tok, ")")) {
+    if (cur != &head) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ','
+    }
+    cur->next = assign(&tok, tok);
+    cur = cur->next;
+  }
 
   assert(equal(tok, ")"));
-  *rest = tok->next;  // skip ")"
+  tok = tok->next;  // skip ')'
+  node->args = head.next;
+  *rest = tok;
   return node;
 }
 
