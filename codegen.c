@@ -4,6 +4,8 @@ static int count = 1;
 static int depth = 0;
 static char *argreg[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 
+static Function *current_fn;
+
 static void gen_expr(Node *node);
 
 static void push() {
@@ -14,6 +16,10 @@ static void push() {
 static void pop(char *arg) {
   printf("    ldr %s, [sp], 16\n", arg);  // pop
   depth--;
+}
+
+static int align_to(int n, int align) {
+  return (n + align - 1) / align * align;
 }
 
 static void gen_addr(Node *node) {
@@ -112,11 +118,6 @@ void gen_expr(Node *node) {
 
 void gen_stmt(Node *node) {
   switch (node->kind) {
-    case ND_RETURN: {
-      gen_expr(node->lhs);
-      printf("    b .L.return\n");
-      return;
-    }
     case ND_IF: {
       int c = count++;
       gen_expr(node->cond);
@@ -154,6 +155,11 @@ void gen_stmt(Node *node) {
       }
       return;
     }
+    case ND_RETURN: {
+      gen_expr(node->lhs);
+      printf("    b .L.return.%s\n", current_fn->name);
+      return;
+    }
     case ND_EXPR_STMT: {
       gen_expr(node->lhs);
       return;
@@ -162,26 +168,36 @@ void gen_stmt(Node *node) {
 }
 
 void code_gen(Function *prog) {
-  int offset = 0;
-  for (Obj *var = prog->locals; var; var = var->next) {
-    offset += 16;
-    var->offset = -offset;
+  for (Function *fn = prog; fn; fn = fn->next) {
+    int offset = 0;
+    for (Obj *var = fn->locals; var; var = var->next) {
+      offset += 16;
+      var->offset = -offset;
+    }
+    fn->stack_size = align_to(offset, 16);
   }
-  prog->stack_size = (offset + 16 - 1) / 16 * 16;
 
-  printf("    .globl _main\n");
-  printf("    .p2align 2\n");
-  printf("_main:\n");
+  for (Function *fn = prog; fn; fn = fn->next) {
+    printf("    .globl _%s\n", fn->name);
+    printf("    .p2align 2\n");
+    printf("_%s:\n", fn->name);
+    current_fn = fn;
 
-  printf("    stp x29, x30, [sp, -16]!\n");
-  printf("    mov x29, sp\n");
-  printf("    sub sp, sp, %d\n", prog->stack_size);
+    printf("    stp x29, x30, [sp, -16]!\n");
+    printf("    mov x29, sp\n");
+    printf("    sub sp, sp, %d\n", fn->stack_size);
 
-  gen_stmt(prog->body);
-  assert(depth == 0);
+    int i = 0;
+    for (Obj *var = fn->params; var; var = var->next) {
+      printf("    str %s, [x29, %d]\n", argreg[i++], var->offset);
+    }
 
-  printf(".L.return:\n");
-  printf("    mov sp, x29\n");
-  printf("    ldp x29, x30, [sp], 16\n");
-  printf("    ret\n");
+    gen_stmt(fn->body);
+    assert(depth == 0);
+
+    printf(".L.return.%s:\n", fn->name);
+    printf("    mov sp, x29\n");
+    printf("    ldp x29, x30, [sp], 16\n");
+    printf("    ret\n");
+  }
 }

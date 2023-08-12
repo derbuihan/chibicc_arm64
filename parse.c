@@ -2,17 +2,21 @@
 
 Obj *locals;
 
-static Node *program(Token **rest, Token *tok);
+static Function *program(Token **rest, Token *tok);
 
-static Node *stmt(Token **rest, Token *tok);
+static Function *function_definition(Token **rest, Token *tok);
 
-static Node *compound_stmt(Token **rest, Token *tok);
-
-static Node *declaration(Token **rest, Token *tok);
+static Type *declspec(Token **rest, Token *tok);
 
 static Type *declarator(Token **rest, Token *tok, Type *ty);
 
-static Type *declspec(Token **rest, Token *tok);
+static Type *type_suffix(Token **rest, Token *tok, Type *ty);
+
+static Node *declaration(Token **rest, Token *tok);
+
+static Node *compound_stmt(Token **rest, Token *tok);
+
+static Node *stmt(Token **rest, Token *tok);
 
 static Node *expr_stmt(Token **rest, Token *tok);
 
@@ -64,17 +68,34 @@ static Obj *new_lvar(char *name, Type *ty) {
   return var;
 }
 
-// program = stmt*
+static char *get_ident(Token *tok) {
+  assert(tok->kind == TK_IDENT);
+  return strndup(tok->loc, tok->len);
+}
+
+static void create_param_lvars(Type *param) {
+  if (param) {
+    create_param_lvars(param->next);
+    new_lvar(get_ident(param->name), param);
+  }
+}
+
+// program = function-definition*
+// function-definition = declspec declarator "{" compound-stmt
+// declspec = "int"
+// declarator = "*"* ident type-suffix
+// type-suffix = ("(" func-params? ")")?
+// func-params = param ("," param)*
+// param = declspec declarator
+// declaration = declspec (declarator ("=" expr)?
+//                         ("," declarator ("=" expr)?)*)? ";"
+// compound-stmt = (declaration | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
-// compound-stmt = (declaration | stmt)* "}"
-// declaration = declspec (declarator ("=" expr)?
-//                         ("," declarator ("=" expr)?)*)? ";"
-// declarator = "*"* ident
 // declspec = "int"
 // expr-stmt = expr? ";"
 // expr = assign
@@ -89,15 +110,139 @@ static Obj *new_lvar(char *name, Type *ty) {
 // func-args = "(" (assign ("," assign)*)? ")"
 // num = 1, 2, 3, ...
 
-// program = stmt*
-Node *program(Token **rest, Token *tok) {
-  Node head = {};
-  Node *cur = &head;
+// program = function-definition*
+Function *program(Token **rest, Token *tok) {
+  Function head = {};
+  Function *cur = &head;
   while (tok->kind != TK_EOF) {
-    cur->next = stmt(&tok, tok);
-    cur = cur->next;
+    cur = cur->next = function_definition(&tok, tok);
   }
   return head.next;
+}
+
+// function-definition = declspec declarator "{" compound-stmt
+Function *function_definition(Token **rest, Token *tok) {
+  Type *ty = declspec(&tok, tok);
+  ty = declarator(&tok, tok, ty);
+  locals = NULL;
+
+  Function *fn = calloc(1, sizeof(Function));
+  fn->name = get_ident(ty->name);
+  create_param_lvars(ty->params);
+  fn->params = locals;
+
+  assert(equal(tok, "{"));
+  fn->body = compound_stmt(&tok, tok->next);
+  fn->locals = locals;
+
+  *rest = tok;
+  return fn;
+}
+
+// declspec = "int"
+Type *declspec(Token **rest, Token *tok) {
+  assert(equal(tok, "int"));
+  *rest = tok->next;  // skip "int";
+  return ty_int;
+}
+
+// declarator = "*"* ident type-suffix
+Type *declarator(Token **rest, Token *tok, Type *ty) {
+  while (equal(tok, "*")) {
+    ty = pointer_to(ty);
+    *rest = tok = tok->next;
+  }
+
+  assert(tok->kind == TK_IDENT);
+
+  ty = type_suffix(rest, tok->next, ty);
+  ty->name = tok;
+  return ty;
+}
+
+// type-suffix = ("(" func-params? ")")?
+// func-params = param ("," param)*
+// param = declspec declarator
+Type *type_suffix(Token **rest, Token *tok, Type *ty) {
+  if (equal(tok, "(")) {
+    tok = tok->next;  // skip "("
+
+    // func-params
+    Type head = {};
+    Type *cur = &head;
+    while (!equal(tok, ")")) {
+      if (cur != &head) {
+        assert(equal(tok, ","));
+        tok = tok->next;
+      }
+      Type *basety = declspec(&tok, tok);
+      Type *ty = declarator(&tok, tok, basety);
+      cur = cur->next = copy_type(ty);
+    }
+    ty = func_type(ty);
+    ty->params = head.next;
+
+    *rest = tok->next;  // skip ")"
+    return ty;
+  }
+
+  *rest = tok;
+  return ty;
+}
+
+// declaration = declspec (declarator ("=" expr)?
+//                         ("," declarator ("=" expr)?)*)? ";"
+Node *declaration(Token **rest, Token *tok) {
+  Type *basety = declspec(&tok, tok);
+
+  Node head = {};
+  Node *cur = &head;
+  int i = 0;
+
+  while (!equal(tok, ";")) {
+    if (i++ > 0) {
+      assert(equal(tok, ","));
+      *rest = tok->next;  // skip ','
+    }
+    Type *ty = declarator(&tok, tok, basety);
+    assert(ty->name->kind == TK_IDENT);
+
+    Obj *var = new_lvar(get_ident(ty->name), ty);
+    if (!equal(tok, "=")) {
+      continue;
+    }
+
+    Node *lhs = new_node(ND_VAR, NULL, NULL);
+    lhs->var = var;
+    Node *rhs = assign(&tok, tok->next);
+    Node *node = new_node(ND_ASSIGN, lhs, rhs);
+    cur = cur->next = new_node(ND_EXPR_STMT, node, NULL);
+  }
+
+  Node *node = new_node(ND_BLOCK, NULL, NULL);
+  node->body = head.next;
+  *rest = tok->next;  // skip ';'
+  return node;
+}
+
+// compound-stmt = (declaration | stmt)* "}"
+Node *compound_stmt(Token **rest, Token *tok) {
+  Node *node = new_node(ND_BLOCK, NULL, NULL);
+
+  Node head = {};
+  Node *cur = &head;
+  while (!equal(tok, "}")) {
+    if (equal(tok, "int")) {
+      cur = cur->next = declaration(&tok, tok);
+    } else {
+      cur = cur->next = stmt(&tok, tok);
+    }
+    add_type(cur);
+  }
+  node->body = head.next;
+  assert(equal(tok, "}"));
+  *rest = tok->next;
+  return node;
 }
 
 // stmt = "return" expr ";"
@@ -179,85 +324,6 @@ Node *stmt(Token **rest, Token *tok) {
   Node *node = expr_stmt(&tok, tok);
   *rest = tok;
   return node;
-}
-
-// compound-stmt = (declaration | stmt)* "}"
-Node *compound_stmt(Token **rest, Token *tok) {
-  Node *node = new_node(ND_BLOCK, NULL, NULL);
-
-  Node head = {};
-  Node *cur = &head;
-  while (!equal(tok, "}")) {
-    if (equal(tok, "int")) {
-      cur->next = declaration(&tok, tok);
-    } else {
-      cur->next = stmt(&tok, tok);
-    }
-    cur = cur->next;
-    add_type(cur);
-  }
-  node->body = head.next;
-  assert(equal(tok, "}"));
-  *rest = tok->next;
-  return node;
-}
-
-// declaration = declspec (declarator ("=" expr)?
-//                         ("," declarator ("=" expr)?)*)? ";"
-Node *declaration(Token **rest, Token *tok) {
-  Type *basety = declspec(&tok, tok);
-
-  Node head = {};
-  Node *cur = &head;
-  int i = 0;
-
-  while (!equal(tok, ";")) {
-    if (i++ > 0) {
-      assert(equal(tok, ","));
-      *rest = tok->next;  // skip ','
-    }
-    Type *ty = declarator(&tok, tok, basety);
-    assert(ty->name->kind == TK_IDENT);
-
-    Obj *var = new_lvar(strndup(ty->name->loc, ty->name->len), ty);
-    if (!equal(tok, "=")) {
-      continue;
-    }
-
-    Node *lhs = new_node(ND_VAR, NULL, NULL);
-    lhs->var = var;
-    Node *rhs = assign(&tok, tok->next);
-    Node *node = new_node(ND_ASSIGN, lhs, rhs);
-    cur->next = new_node(ND_EXPR_STMT, node, NULL);
-    cur = cur->next;
-  }
-
-  Node *node = new_node(ND_BLOCK, NULL, NULL);
-  node->body = head.next;
-  *rest = tok->next;  // skip ';'
-  return node;
-}
-
-// declarator = "*"* ident
-Type *declarator(Token **rest, Token *tok, Type *ty) {
-  while (equal(tok, "*")) {
-    ty = pointer_to(ty);
-    tok = tok->next;
-    *rest = tok;
-  }
-
-  assert(tok->kind == TK_IDENT);
-
-  ty->name = tok;
-  *rest = tok->next;
-  return ty;
-}
-
-// declspec = "int"
-Type *declspec(Token **rest, Token *tok) {
-  assert(equal(tok, "int"));
-  *rest = tok->next;  // skip "int";
-  return ty_int;
 }
 
 // expr-stmt = expr? ";"
@@ -513,12 +579,11 @@ Node *ident(Token **rest, Token *tok) {
 // funcall = ident func-args?
 // func-args = "(" (assign ("," assign)*)? ")"
 Node *funcall(Token **rest, Token *tok) {
-  Node *node = new_node(ND_FUNCALL, NULL, NULL);
-  node->funcname = strndup(tok->loc, tok->len);
-  tok = tok->next;
+  Token *start = tok;
 
-  assert(equal(tok, "("));
   tok = tok->next;  // skip '('
+  assert(equal(tok, "("));
+  tok = tok->next;
 
   Node head = {};
   Node *cur = &head;
@@ -527,14 +592,15 @@ Node *funcall(Token **rest, Token *tok) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ','
     }
-    cur->next = assign(&tok, tok);
-    cur = cur->next;
+    cur = cur->next = assign(&tok, tok);
   }
-
   assert(equal(tok, ")"));
   tok = tok->next;  // skip ')'
-  node->args = head.next;
   *rest = tok;
+
+  Node *node = new_node(ND_FUNCALL, NULL, NULL);
+  node->funcname = strndup(start->loc, start->len);
+  node->args = head.next;
   return node;
 }
 
@@ -548,11 +614,6 @@ Node *num(Token **rest, Token *tok) {
 }
 
 Function *parse(Token *tok) {
-  Node *node = program(&tok, tok);
-
-  Function *prog = calloc(1, sizeof(Function));
-  prog->body = node;
-  prog->locals = locals;
-
+  Function *prog = program(&tok, tok);
   return prog;
 }
