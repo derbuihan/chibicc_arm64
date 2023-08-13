@@ -12,6 +12,8 @@ static Type *declarator(Token **rest, Token *tok, Type *ty);
 
 static Type *type_suffix(Token **rest, Token *tok, Type *ty);
 
+static Type *func_params(Token **rest, Token *tok, Type *ty);
+
 static Node *declaration(Token **rest, Token *tok);
 
 static Node *compound_stmt(Token **rest, Token *tok);
@@ -84,8 +86,10 @@ static void create_param_lvars(Type *param) {
 // function-definition = declspec declarator "{" compound-stmt
 // declspec = "int"
 // declarator = "*"* ident type-suffix
-// type-suffix = ("(" func-params? ")")?
-// func-params = param ("," param)*
+// type-suffix = "(" func-params
+//             | "[" num "]"
+//             | ε
+// func-params = (param ("," param)*)? ")"
 // param = declspec declarator
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
@@ -160,33 +164,47 @@ Type *declarator(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// type-suffix = ("(" func-params? ")")?
-// func-params = param ("," param)*
-// param = declspec declarator
+// type-suffix = "(" func-params
+//             | "[" num "]"
+//             | ε
 Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   if (equal(tok, "(")) {
-    tok = tok->next;  // skip "("
+    return func_params(rest, tok->next, ty);
+  }
 
-    // func-params
-    Type head = {};
-    Type *cur = &head;
-    while (!equal(tok, ")")) {
-      if (cur != &head) {
-        assert(equal(tok, ","));
-        tok = tok->next;
-      }
-      Type *basety = declspec(&tok, tok);
-      Type *ty = declarator(&tok, tok, basety);
-      cur = cur->next = copy_type(ty);
-    }
-    ty = func_type(ty);
-    ty->params = head.next;
-
-    *rest = tok->next;  // skip ")"
-    return ty;
+  if (equal(tok, "[")) {
+    tok = tok->next;  // skip "["
+    assert(tok->kind == TK_NUM);
+    int sz = tok->val;
+    tok = tok->next;  // skip num
+    assert(equal(tok, "]"));
+    *rest = tok = tok->next;  // skip "]"
+    return array_of(ty, sz);
   }
 
   *rest = tok;
+  return ty;
+}
+
+// func-params = (param ("," param)*)? ")"
+// param = declspec declarator
+Type *func_params(Token **rest, Token *tok, Type *ty) {
+  Type head = {};
+  Type *cur = &head;
+
+  while (!equal(tok, ")")) {
+    if (cur != &head) {
+      assert(equal(tok, ","));
+      tok = tok->next;
+    }
+    Type *basety = declspec(&tok, tok);
+    Type *ty = declarator(&tok, tok, basety);
+    cur = cur->next = copy_type(ty);
+  }
+
+  ty = func_type(ty);
+  ty->params = head.next;
+  *rest = tok->next;  // skip ")"
   return ty;
 }
 
@@ -431,12 +449,13 @@ Node *add(Token **rest, Token *tok) {
       // ptr + num
       if (lhs->ty->base && rhs->ty->kind == TY_INT) {
         Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = 16;
+        num_node->val = lhs->ty->base->size;
         node = new_node(ND_ADD, lhs, new_node(ND_MUL, rhs, num_node));
         continue;
       }
 
       // TODO: ERR ptr + ptr
+      exit(1);
 
       continue;
     }
@@ -456,7 +475,7 @@ Node *add(Token **rest, Token *tok) {
       // ptr - num = num
       if (lhs->ty->base && rhs->ty->kind == TY_INT) {
         Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = 16;
+        num_node->val = lhs->ty->base->size;
         node = new_node(ND_SUB, lhs, new_node(ND_MUL, rhs, num_node));
         continue;
       }
@@ -464,12 +483,13 @@ Node *add(Token **rest, Token *tok) {
       // ptr - ptr = num
       if (lhs->ty->base && rhs->ty->base) {
         Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = 16;
+        num_node->val = lhs->ty->base->size;
         node = new_node(ND_DIV, new_node(ND_SUB, lhs, rhs), num_node);
         continue;
       }
 
       // TODO: ERR num - ptr
+      exit(1);
 
       continue;
     }
@@ -567,6 +587,7 @@ Node *ident(Token **rest, Token *tok) {
 
   if (!var) {
     // TODO: ERR var is not defined
+    exit(1);
   }
 
   Node *node = new_node(ND_VAR, NULL, NULL);

@@ -9,7 +9,6 @@ cat << EOF | gcc -xc -c -o tmp2.o -
   int add8(int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8) {return a1+a2+a3+a4+a5+a6+a7+a8;}
 EOF
 
-
 function test() {
   ./chibicc "$2" > tmp.s
   cc -o tmp tmp.s tmp2.o
@@ -133,5 +132,11 @@ test 44 'int add(int x, int y) {return x + y + ret11();} int main() {return add(
 test 44 'int main() {return add(11, 22);} int add (int x, int y) { return x + y + ret11(); }'
 test 55 'int main() {return fib(9);} int fib(int x) {if (x<=1) return 1; return fib(x-1) + fib(x-2);}'
 test 42 'int main() {return fib(7) + fib(7);} int fib(int x) {if (x<=1) return 1; return fib(x-1) + fib(x-2);}'
+
+test 11 'int main() {int x[1]; *x = 11; return *x;}'
+test 11 'int main() {int x[2]; *(x+1) = 11; return *(x+1);}'
+test 11 'int main() { int x[2]; int *y = x; *y = 11; return *x;}'
+test 11 'int main() { int x[2]; int *y = &x; *y = 11; return *x;}'
+test 11 'int main() { int x[2]; int *y = x+1; *y = 11; return *(x+1);}'
 
 echo "OK"
