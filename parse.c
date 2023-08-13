@@ -36,6 +36,8 @@ static Node *mul(Token **rest, Token *tok);
 
 static Node *unary(Token **rest, Token *tok);
 
+static Node *postfix(Token **rest, Token *tok);
+
 static Node *primary(Token **rest, Token *tok);
 
 static Node *ident(Token **rest, Token *tok);
@@ -82,12 +84,69 @@ static void create_param_lvars(Type *param) {
   }
 }
 
+// pointer + number
+static Node *new_add(Node *lhs, Node *rhs) {
+  add_type(lhs);
+  add_type(rhs);
+
+  // num + num
+  if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+    return new_node(ND_ADD, lhs, rhs);
+  }
+
+  // ptr + ptr
+  if (lhs->ty->base && rhs->ty->base) {
+    // TODO: ERR ptr + ptr
+    exit(1);
+  }
+
+  // num + ptr -> ptr + num
+  if (lhs->ty->kind == TY_INT && rhs->ty->base) {
+    Node *tmp = lhs;
+    lhs = rhs;
+    rhs = tmp;
+  }
+
+  // ptr + num
+  Node *num_node = new_node(ND_NUM, NULL, NULL);
+  num_node->val = lhs->ty->base->size;
+  return new_node(ND_ADD, lhs, new_node(ND_MUL, rhs, num_node));
+}
+
+// pointer - number
+static Node *new_sub(Node *lhs, Node *rhs) {
+  add_type(lhs);
+  add_type(rhs);
+
+  // num - num
+  if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+    return new_node(ND_SUB, lhs, rhs);
+  }
+
+  // ptr - num -> ptr
+  if (lhs->ty->base && rhs->ty->kind == TY_INT) {
+    Node *num_node = new_node(ND_NUM, NULL, NULL);
+    num_node->val = lhs->ty->base->size;
+    return new_node(ND_SUB, lhs, new_node(ND_MUL, rhs, num_node));
+  }
+
+  // ptr - ptr = num
+  if (lhs->ty->base && rhs->ty->base) {
+    Node *num_node = new_node(ND_NUM, NULL, NULL);
+    num_node->val = lhs->ty->base->size;
+    return new_node(ND_DIV, new_node(ND_SUB, lhs, rhs), num_node);
+  }
+
+  // TODO: ERR num - ptr
+  exit(1);
+}
+
 // program = function-definition*
 // function-definition = declspec declarator "{" compound-stmt
 // declspec = "int"
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
-//             | "[" num "]"
+//             | "[" num "]" type-suffix
 //             | ε
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
@@ -108,10 +167,16 @@ static void create_param_lvars(Type *param) {
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-" | "&" | "*") unary | primary
-// primary = "(" expr ")" | ident func-args? | num
+// unary = ("+" | "-" | "&" | "*") unary
+//       | postfix
+// postfix = primary ("[" expr "]")*
+// primary = "(" expr ")"
+//         | "sizeof" unary
+//         | funcall
+//         | ident
+//         | num
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
-// func-args = "(" (assign ("," assign)*)? ")"
+// funcall = ident "(" (assign ("," assign)*)? ")"
 // num = 1, 2, 3, ...
 
 // program = function-definition*
@@ -165,7 +230,7 @@ Type *declarator(Token **rest, Token *tok, Type *ty) {
 }
 
 // type-suffix = "(" func-params
-//             | "[" num "]"
+//             | "[" num "]" type-suffix
 //             | ε
 Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   if (equal(tok, "(")) {
@@ -179,6 +244,7 @@ Type *type_suffix(Token **rest, Token *tok, Type *ty) {
     tok = tok->next;  // skip num
     assert(equal(tok, "]"));
     *rest = tok = tok->next;  // skip "]"
+    ty = type_suffix(rest, tok, ty);
     return array_of(ty, sz);
   }
 
@@ -428,69 +494,12 @@ Node *add(Token **rest, Token *tok) {
 
   for (;;) {
     if (equal(tok, "+")) {
-      Node *lhs = node;
-      Node *rhs = mul(&tok, tok->next);
-      add_type(lhs);
-      add_type(rhs);
-
-      // num + num
-      if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
-        node = new_node(ND_ADD, lhs, rhs);
-        continue;
-      }
-
-      // num + ptr -> ptr + num
-      if (lhs->ty->kind == TY_INT && rhs->ty->base) {
-        Node *tmp = lhs;
-        lhs = rhs;
-        rhs = tmp;
-      }
-
-      // ptr + num
-      if (lhs->ty->base && rhs->ty->kind == TY_INT) {
-        Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = lhs->ty->base->size;
-        node = new_node(ND_ADD, lhs, new_node(ND_MUL, rhs, num_node));
-        continue;
-      }
-
-      // TODO: ERR ptr + ptr
-      exit(1);
-
+      node = new_add(node, mul(&tok, tok->next));
       continue;
     }
 
     if (equal(tok, "-")) {
-      Node *lhs = node;
-      Node *rhs = mul(&tok, tok->next);
-      add_type(lhs);
-      add_type(rhs);
-
-      // num - num
-      if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
-        node = new_node(ND_SUB, lhs, rhs);
-        continue;
-      }
-
-      // ptr - num = num
-      if (lhs->ty->base && rhs->ty->kind == TY_INT) {
-        Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = lhs->ty->base->size;
-        node = new_node(ND_SUB, lhs, new_node(ND_MUL, rhs, num_node));
-        continue;
-      }
-
-      // ptr - ptr = num
-      if (lhs->ty->base && rhs->ty->base) {
-        Node *num_node = new_node(ND_NUM, NULL, NULL);
-        num_node->val = lhs->ty->base->size;
-        node = new_node(ND_DIV, new_node(ND_SUB, lhs, rhs), num_node);
-        continue;
-      }
-
-      // TODO: ERR num - ptr
-      exit(1);
-
+      node = new_sub(node, mul(&tok, tok->next));
       continue;
     }
 
@@ -518,7 +527,8 @@ Node *mul(Token **rest, Token *tok) {
   }
 }
 
-// unary = ("+" | "-" | "&" | "*") unary | primary
+// unary = ("+" | "-" | "&" | "*") unary
+//       | postfix
 Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "+")) {
     Node *node = unary(&tok, tok->next);
@@ -544,12 +554,31 @@ Node *unary(Token **rest, Token *tok) {
     return node;
   }
 
-  Node *node = primary(&tok, tok);
+  Node *node = postfix(&tok, tok);
   *rest = tok;
   return node;
 }
 
-// primary = "(" expr ")" | ident func-args? | num
+// postfix = primary ("[" expr "]")*
+Node *postfix(Token **rest, Token *tok) {
+  Node *node = primary(&tok, tok);
+
+  while (equal(tok, "[")) {
+    Node *idx = expr(&tok, tok->next);
+    assert(equal(tok, "]"));
+    tok = tok->next;  // skip "]"
+    node = new_node(ND_DEREF, new_add(node, idx), NULL);
+  }
+
+  *rest = tok;
+  return node;
+}
+
+// primary = "(" expr ")"
+//         | "sizeof" unary
+//         | funcall
+//         | ident
+//         | num
 Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
     Node *node = expr(&tok, tok->next);
@@ -558,21 +587,29 @@ Node *primary(Token **rest, Token *tok) {
     return node;
   }
 
-  // function
+  // "sizeof" unary
+  if (equal(tok, "sizeof")) {
+    Node *node = new_node(ND_NUM, NULL, NULL);
+    node->val = unary(&tok, tok->next)->ty->size;
+    *rest = tok;
+    return node;
+  }
+
+  // funcall
   if (equal(tok->next, "(")) {
     Node *node = funcall(&tok, tok);
     *rest = tok;
     return node;
   }
 
-  // variable
+  // ident
   if (tok->kind == TK_IDENT) {
     Node *node = ident(&tok, tok);
     *rest = tok;
     return node;
   }
 
-  // number
+  // num
   if (tok->kind == TK_NUM) {
     Node *node = num(&tok, tok);
     *rest = tok;
@@ -597,8 +634,7 @@ Node *ident(Token **rest, Token *tok) {
   return node;
 }
 
-// funcall = ident func-args?
-// func-args = "(" (assign ("," assign)*)? ")"
+// funcall = ident "(" (assign ("," assign)*)? ")"
 Node *funcall(Token **rest, Token *tok) {
   Token *start = tok;
 
