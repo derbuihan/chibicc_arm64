@@ -4,7 +4,7 @@ static int count = 1;
 static int depth = 0;
 static char *argreg[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 
-static Function *current_fn;
+static Obj *current_fn;
 
 static void gen_expr(Node *node);
 
@@ -178,8 +178,11 @@ void gen_stmt(Node *node) {
   }
 }
 
-void code_gen(Function *prog) {
-  for (Function *fn = prog; fn; fn = fn->next) {
+void code_gen(Obj *prog) {
+  for (Obj *fn = prog; fn; fn = fn->next) {
+    if (!fn->is_function) {
+      continue;
+    }
     int offset = 0;
     for (Obj *var = fn->locals; var; var = var->next) {
       offset += var->ty->size;
@@ -188,7 +191,7 @@ void code_gen(Function *prog) {
     fn->stack_size = align_to(offset, 16);
   }
 
-  for (Function *fn = prog; fn; fn = fn->next) {
+  for (Obj *fn = prog; fn; fn = fn->next) {
     printf("    .globl _%s\n", fn->name);
     printf("    .p2align 2\n");
     printf("_%s:\n", fn->name);

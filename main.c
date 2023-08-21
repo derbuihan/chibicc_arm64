@@ -5,8 +5,11 @@ int main(int argc, char **argv) {
 
   char *p = argv[1];
 
+  // Tokenize and parse.
   Token *tok = tokenizer(p);
-  Function *prog = parse(tok);
+  Obj *prog = parse(tok);
+
+  // Traverse the AST to emit assembly.
   code_gen(prog);
 
   return 0;
