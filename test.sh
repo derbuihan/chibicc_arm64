@@ -25,6 +25,7 @@ function test() {
 }
 
 test 1 "int main() {return 1;}"
+test 2 "int main() {return (2);}"
 test 3 "int main() {return 2 + 1;}"
 test 6 "int main() {return 1+2+3;}"
 test 10 "int main() {return 4 + 3 + 2 + 1;}"
@@ -151,5 +152,24 @@ test 6 'int main() { int x[2][3]; int *y=x; y[3]=6; return x[1][0]; }'
 test 7 'int main() { int x[2][3]; int *y=x; y[4]=7; return x[1][1]; }'
 test 8 'int main() { int x[2][3]; int *y=x; y[5]=8; return x[1][2]; }'
 test 8 'int main() { int x[2][3][4]; int *y=x; y[23]=8; return x[1][2][3]; }'
+
+assert 8 'int main() { int x; return sizeof(x); }'
+assert 8 'int main() { int x; return sizeof x; }'
+assert 8 'int main() { int *x; return sizeof(x); }'
+assert 32 'int main() { int x[4]; return sizeof(x); }'
+assert 96 'int main() { int x[3][4]; return sizeof(x); }'
+assert 32 'int main() { int x[3][4]; return sizeof(*x); }'
+assert 8 'int main() { int x[3][4]; return sizeof(**x); }'
+assert 9 'int main() { int x[3][4]; return sizeof(**x) + 1; }'
+
+test 0 'int x; int main() {return x;}'
+test 3 'int x; int main() {x = 3; return x;}'
+test 7 'int x, y; int main() {x = 3; y = 4; return x + y;}'
+test 0 'int x[4]; int main() {x[0] = 0; x[1] = 1; x[2] = 2; x[3] = 3; return x[0];}'
+test 1 'int x[4]; int main() {x[0] = 0; x[1] = 1; x[2] = 2; x[3] = 3; return x[1];}'
+test 2 'int x[4]; int main() {x[0] = 0; x[1] = 1; x[2] = 2; x[3] = 3; return x[2];}'
+test 3 'int x[4]; int main() {x[0] = 0; x[1] = 1; x[2] = 2; x[3] = 3; return x[3];}'
+test 8 'int x; int main() {return sizeof x;}'
+test 32 'int x[4]; int main() {return sizeof x;}'
 
 echo "OK"

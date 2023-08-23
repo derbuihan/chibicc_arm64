@@ -4,7 +4,9 @@ static Obj *locals;
 
 static Obj *globals;
 
-static Token *function_definition(Token *tok, Type *basety);
+static Token *global_variable(Token *tok, Type *basety);
+
+static Token *function(Token *tok, Type *basety);
 
 static Type *declspec(Token **rest, Token *tok);
 
@@ -60,6 +62,13 @@ static Obj *find_var(Token *tok) {
       return var;
     }
   }
+
+  for (Obj *var = globals; var; var = var->next) {
+    if (equal(tok, var->name)) {
+      return var;
+    }
+  }
+
   return NULL;
 }
 
@@ -154,8 +163,19 @@ static Node *new_sub(Node *lhs, Node *rhs) {
   exit(1);
 }
 
-// program = (function-definition | global-variable)*
-// function-definition = declspec declarator "{" compound-stmt
+static bool is_function(Token *tok) {
+  if (equal(tok->next, ";")) {
+    return false;
+  }
+
+  Type dummy = {};
+  Type *ty = declarator(&tok, tok, &dummy);
+  return ty->kind == TY_FUNC;
+}
+
+// program = (declspec global-variable | declspec function)*
+// global-variable = declarator ("," declarator)* ";"
+// function = declarator "{" compound-stmt
 // declspec = "int"
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
@@ -172,7 +192,6 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 //      | "while" "(" expr ")" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
-// declspec = "int"
 // expr-stmt = expr? ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -192,8 +211,25 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 // funcall = ident "(" (assign ("," assign)*)? ")"
 // num = 1, 2, 3, ...
 
-// function-definition = declspec declarator "{" compound-stmt
-Token *function_definition(Token *tok, Type *basety) {
+// global-variable = declarator ("," declarator)* ";"
+Token *global_variable(Token *tok, Type *basety) {
+  int count = 0;
+  while (!equal(tok, ";")) {
+    if (count++ > 0) {
+      assert(equal(tok, ","));
+      tok = tok->next;
+    }
+    Type *ty = declarator(&tok, tok, basety);
+    new_gvar(get_ident(ty->name), ty);
+  }
+
+  assert(equal(tok, ";"));
+  tok = tok->next;  // skip ";"
+  return tok;
+}
+
+// function = declarator "{" compound-stmt
+Token *function(Token *tok, Type *basety) {
   Type *ty = declarator(&tok, tok, basety);
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
@@ -591,8 +627,10 @@ Node *primary(Token **rest, Token *tok) {
 
   // "sizeof" unary
   if (equal(tok, "sizeof")) {
+    Node *tmp = unary(&tok, tok->next);
+    add_type(tmp);
     Node *node = new_node(ND_NUM, NULL, NULL);
-    node->val = unary(&tok, tok->next)->ty->size;
+    node->val = tmp->ty->size;
     *rest = tok;
     return node;
   }
@@ -672,12 +710,20 @@ Node *num(Token **rest, Token *tok) {
   return node;
 }
 
-// program = (function-definition | global-variable)*
+// program = (declspec global-variable | declspec function)*
 Obj *parse(Token *tok) {
   globals = NULL;
   while (tok->kind != TK_EOF) {
     Type *basety = declspec(&tok, tok);
-    tok = function_definition(tok, basety);
+
+    // global variable
+    if (!is_function(tok)) {
+      tok = global_variable(tok, basety);
+      continue;
+    }
+
+    // function
+    tok = function(tok, basety);
   }
   return globals;
 }

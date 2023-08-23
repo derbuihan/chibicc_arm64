@@ -37,7 +37,14 @@ static int align_to(int n, int align) {
 static void gen_addr(Node *node) {
   switch (node->kind) {
     case ND_VAR:
-      printf("    add x0, x29, %d\n", node->var->offset);
+      if (node->var->is_local) {
+        // Local variable
+        printf("    add x0, x29, %d\n", node->var->offset);
+      } else {
+        // Global variable
+        printf("    adrp x0, _%s@PAGE\n", node->var->name);
+        printf("    add x0, x0, _%s@PAGEOFF\n", node->var->name);
+      }
       return;
     case ND_DEREF:
       gen_expr(node->lhs);
@@ -178,7 +185,7 @@ void gen_stmt(Node *node) {
   }
 }
 
-void code_gen(Obj *prog) {
+static void assign_lvar_offsets(Obj *prog) {
   for (Obj *fn = prog; fn; fn = fn->next) {
     if (!fn->is_function) {
       continue;
@@ -190,8 +197,28 @@ void code_gen(Obj *prog) {
     }
     fn->stack_size = align_to(offset, 16);
   }
+}
 
+static void emit_data(Obj *prog) {
   for (Obj *fn = prog; fn; fn = fn->next) {
+    if (fn->is_function) {
+      continue;
+    }
+
+    printf("    .data\n");
+    printf("    .globl _%s\n", fn->name);
+    printf("    .p2align 2\n");
+    printf("_%s:\n", fn->name);
+    printf("    .zero %d\n\n", fn->ty->size);
+  }
+}
+
+static void emit_text(Obj *prog) {
+  for (Obj *fn = prog; fn; fn = fn->next) {
+    if (!fn->is_function) {
+      continue;
+    }
+    printf("    .text\n");
     printf("    .globl _%s\n", fn->name);
     printf("    .p2align 2\n");
     printf("_%s:\n", fn->name);
@@ -212,6 +239,12 @@ void code_gen(Obj *prog) {
     printf(".L.return.%s:\n", fn->name);
     printf("    mov sp, x29\n");
     printf("    ldp x29, x30, [sp], 16\n");
-    printf("    ret\n");
+    printf("    ret\n\n");
   }
+}
+
+void code_gen(Obj *prog) {
+  assign_lvar_offsets(prog);
+  emit_data(prog);
+  emit_text(prog);
 }
