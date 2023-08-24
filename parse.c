@@ -112,7 +112,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
   add_type(rhs);
 
   // num + num
-  if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+  if (is_integer(lhs->ty) && is_integer(rhs->ty)) {
     return new_node(ND_ADD, lhs, rhs);
   }
 
@@ -123,7 +123,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
   }
 
   // num + ptr -> ptr + num
-  if (lhs->ty->kind == TY_INT && rhs->ty->base) {
+  if (is_integer(lhs->ty) && rhs->ty->base) {
     Node *tmp = lhs;
     lhs = rhs;
     rhs = tmp;
@@ -141,12 +141,12 @@ static Node *new_sub(Node *lhs, Node *rhs) {
   add_type(rhs);
 
   // num - num
-  if (lhs->ty->kind == TY_INT && rhs->ty->kind == TY_INT) {
+  if (is_integer(lhs->ty) && is_integer(rhs->ty)) {
     return new_node(ND_SUB, lhs, rhs);
   }
 
   // ptr - num -> ptr
-  if (lhs->ty->base && rhs->ty->kind == TY_INT) {
+  if (lhs->ty->base && is_integer(rhs->ty)) {
     Node *num_node = new_node(ND_NUM, NULL, NULL);
     num_node->val = lhs->ty->base->size;
     return new_node(ND_SUB, lhs, new_node(ND_MUL, rhs, num_node));
@@ -173,10 +173,14 @@ static bool is_function(Token *tok) {
   return ty->kind == TY_FUNC;
 }
 
+static bool is_typename(Token *tok) {
+  return equal(tok, "char") || equal(tok, "int");
+}
+
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator "{" compound-stmt
-// declspec = "int"
+// declspec = "char" | "int"
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
@@ -246,8 +250,13 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "int"
+// declspec = "char" | "int"
 Type *declspec(Token **rest, Token *tok) {
+  if (equal(tok, "char")) {
+    *rest = tok->next;
+    return ty_char;
+  }
+
   assert(equal(tok, "int"));
   *rest = tok->next;  // skip "int";
   return ty_int;
@@ -354,7 +363,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
   Node head = {};
   Node *cur = &head;
   while (!equal(tok, "}")) {
-    if (equal(tok, "int")) {
+    if (is_typename(tok)) {
       cur = cur->next = declaration(&tok, tok);
     } else {
       cur = cur->next = stmt(&tok, tok);
