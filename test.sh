@@ -14,7 +14,6 @@ function test() {
   cc -o tmp tmp.s tmp2.o
   ./tmp
   ret=$?
-  [ "$ret" = "$1" ] && echo "ok $2 = $ret" || ( echo "ng $2 != $ret"; exit 1 )
 
   if [ "$ret" == "$1" ]; then
     echo "ok $2 = $ret"
@@ -178,5 +177,11 @@ test 2 'int main() { char x = 1; char y = 2; return y;}'
 test 1 'int main() { char x; return sizeof(x);}'
 test 10 'int main() { char x[10]; return sizeof(x);}'
 test 1 'int main() { return sub_char(7, 3, 3); } int sub_char(char x, char y, char z) { return x - y - z; }'
+
+test 97 'int main() { return "abc"[0]; }'
+test 98 'int main() { return "abc"[1]; }'
+test 99 'int main() { return "abc"[2]; }'
+test 0 'int main() { return "abc"[3]; }'
+test 4 'int main() { return sizeof("abc"); }'
 
 echo "OK"

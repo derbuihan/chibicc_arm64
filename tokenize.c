@@ -12,6 +12,20 @@ bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
 
+static Token *read_string_literal(char *start) {
+  char *p = start + 1;
+
+  for (; *p != '"'; p++) {
+    assert(*p != '\n');
+    assert(*p != '\0');
+  }
+
+  Token *tok = new_token(TK_STR, start, p + 1);
+  tok->ty = array_of(ty_char, p - start);
+  tok->str = strndup(start + 1, p - start - 1);
+  return tok;
+}
+
 Token *tokenizer(char *p) {
   Token head = {};
   Token *cur = &head;
@@ -29,6 +43,12 @@ Token *tokenizer(char *p) {
       tok->val = val;
       cur->next = tok;
       cur = cur->next;
+      continue;
+    }
+
+    if (*p == '"') {
+      cur = cur->next = read_string_literal(p);
+      p += cur->len;
       continue;
     }
 

@@ -209,16 +209,24 @@ static void assign_lvar_offsets(Obj *prog) {
 }
 
 static void emit_data(Obj *prog) {
-  for (Obj *fn = prog; fn; fn = fn->next) {
-    if (fn->is_function) {
+  for (Obj *var = prog; var; var = var->next) {
+    if (var->is_function) {
       continue;
     }
 
     printf("    .data\n");
-    printf("    .globl _%s\n", fn->name);
+    printf("    .globl _%s\n", var->name);
     printf("    .p2align 2\n");
-    printf("_%s:\n", fn->name);
-    printf("    .zero %d\n\n", fn->ty->size);
+    printf("_%s:\n", var->name);
+
+    if (var->init_data) {
+      for (int i = 0; i < var->ty->size; i++) {
+        printf("    .byte %d\n", var->init_data[i]);
+      }
+    } else {
+      printf("    .zero %d\n", var->ty->size);
+    }
+    printf(" \n");
   }
 }
 

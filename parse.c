@@ -94,6 +94,21 @@ static Obj *new_gvar(char *name, Type *ty) {
   return var;
 }
 
+static char *new_unique_name(void) {
+  static int id = 0;
+  char *buf = calloc(1, 20);
+  sprintf(buf, ".L..%d", id++);
+  return buf;
+}
+
+static Obj *new_anon_gvar(Type *ty) { return new_gvar(new_unique_name(), ty); }
+
+static Obj *new_string_literal(char *p, Type *ty) {
+  Obj *var = new_anon_gvar(ty);
+  var->init_data = p;
+  return var;
+}
+
 static char *get_ident(Token *tok) {
   assert(tok->kind == TK_IDENT);
   return strndup(tok->loc, tok->len);
@@ -210,6 +225,7 @@ static bool is_typename(Token *tok) {
 //         | "sizeof" unary
 //         | funcall
 //         | ident
+//         | str
 //         | num
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 // funcall = ident "(" (assign ("," assign)*)? ")"
@@ -625,6 +641,7 @@ Node *postfix(Token **rest, Token *tok) {
 //         | "sizeof" unary
 //         | funcall
 //         | ident
+//         | str
 //         | num
 Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
@@ -655,6 +672,15 @@ Node *primary(Token **rest, Token *tok) {
   if (tok->kind == TK_IDENT) {
     Node *node = ident(&tok, tok);
     *rest = tok;
+    return node;
+  }
+
+  // str
+  if (tok->kind == TK_STR) {
+    Obj *var = new_string_literal(tok->str, tok->ty);
+    *rest = tok->next;
+    Node *node = new_node(ND_VAR, NULL, NULL);
+    node->var = var;
     return node;
   }
 
