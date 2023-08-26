@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +8,10 @@
 
 typedef struct Type Type;
 typedef struct Node Node;
+
+// strings
+
+char *format(char *fmt, ...);
 
 // tokenizer
 
