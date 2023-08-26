@@ -12,17 +12,94 @@ bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
 
-static Token *read_string_literal(char *start) {
-  char *p = start + 1;
+static int from_hex(char c) {
+  if ('0' <= c && c <= '9') {
+    return c - '0';
+  }
+  if ('a' <= c && c <= 'f') {
+    return c - 'a' + 10;
+  }
+  return c - 'A' + 10;
+}
 
-  for (; *p != '"'; p++) {
-    assert(*p != '\n');
-    assert(*p != '\0');
+static char read_escaped_char(char **new_pos, char *p) {
+  // Read an octal number.
+  if ('0' <= *p && *p <= '7') {
+    int c = *p++ - '0';
+    if ('0' <= *p && *p <= '7') {
+      c = (c << 3) + (*p++ - '0');
+      if ('0' <= *p && *p <= '7') {
+        c = (c << 3) + (*p++ - '0');
+      }
+    }
+    *new_pos = p;
+    return c;
   }
 
-  Token *tok = new_token(TK_STR, start, p + 1);
-  tok->ty = array_of(ty_char, p - start);
-  tok->str = strndup(start + 1, p - start - 1);
+  // Read a hexadecimal number
+  if (*p == 'x') {
+    p++;
+    assert(isxdigit(*p));
+
+    int c = 0;
+    for (; isxdigit(*p); p++) {
+      c = (c << 4) + from_hex(*p);
+    }
+    *new_pos = p;
+    return c;
+  }
+
+  *new_pos = p + 1;
+
+  switch (*p) {
+    case 'a':
+      return '\a';
+    case 'b':
+      return '\b';
+    case 't':
+      return '\t';
+    case 'n':
+      return '\n';
+    case 'v':
+      return '\v';
+    case 'f':
+      return '\f';
+    case 'r':
+      return '\r';
+    case 'e':
+      // [GNU] \e for the ASCII escape character is a GNU extension.
+      return 27;
+    default:
+      return *p;
+  }
+}
+
+static char *string_literal_end(char *p) {
+  for (; *p != '"'; p++) {
+    assert(*p != '\n' || *p != '\0');
+    if (*p == '\\') {
+      p++;
+    }
+  }
+  return p;
+}
+
+static Token *read_string_literal(char *start) {
+  char *end = string_literal_end(start + 1);
+  char *buf = calloc(1, end - start);
+  int len = 0;
+
+  for (char *p = start + 1; p < end;) {
+    if (*p == '\\') {
+      buf[len++] = read_escaped_char(&p, p + 1);
+    } else {
+      buf[len++] = *p++;
+    }
+  }
+
+  Token *tok = new_token(TK_STR, start, end + 1);
+  tok->ty = array_of(ty_char, len + 1);
+  tok->str = buf;
   return tok;
 }
 

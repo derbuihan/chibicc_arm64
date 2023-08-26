@@ -184,4 +184,32 @@ test 99 'int main() { return "abc"[2]; }'
 test 0 'int main() { return "abc"[3]; }'
 test 4 'int main() { return sizeof("abc"); }'
 
+test 7 'int main() { return "\a"[0]; }'
+test 8 'int main() { return "\b"[0]; }'
+test 9 'int main() { return "\t"[0]; }'
+test 10 'int main() { return "\n"[0]; }'
+test 11 'int main() { return "\v"[0]; }'
+test 12 'int main() { return "\f"[0]; }'
+test 13 'int main() { return "\r"[0]; }'
+test 27 'int main() { return "\e"[0]; }'
+
+test 106 'int main() { return "\j"[0]; }'
+test 107 'int main() { return "\k"[0]; }'
+test 108 'int main() { return "\l"[0]; }'
+
+test 7 'int main() { return "\ax\ny"[0]; }'
+test 120 'int main() { return "\ax\ny"[1]; }'
+test 10 'int main() { return "\ax\ny"[2]; }'
+test 121 'int main() { return "\ax\ny"[3]; }'
+
+test 0 'int main() { return "\0"[0]; }'
+test 16 'int main() { return "\20"[0]; }'
+test 65 'int main() { return "\101"[0]; }'
+test 104 'int main() { return "\1500"[0]; }'
+test 0 'int main() { return "\x00"[0]; }'
+test 119 'int main() { return "\x77"[0]; }'
+test 165 'int main() { return "\xA5"[0]; }'
+test 255 'int main() { return "\x00ff"[0]; }'
+test 255 'int main() { return "\x00\xff"[1]; }'
+
 echo "OK"
