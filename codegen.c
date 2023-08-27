@@ -8,6 +8,7 @@ static char *argreg64[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 static Obj *current_fn;
 
 static void gen_expr(Node *node);
+static void gen_stmt(Node *node);
 
 static void push() {
   printf("    str x0, [sp, -16]!\n");  // push
@@ -86,6 +87,11 @@ void gen_expr(Node *node) {
       push();
       gen_expr(node->rhs);
       store(node->ty);
+      return;
+    case ND_STMT_EXPR:
+      for (Node *n = node->body; n; n = n->next) {
+        gen_stmt(n);
+      }
       return;
     case ND_FUNCALL: {
       int nargs = 0;

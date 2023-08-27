@@ -93,6 +93,18 @@ void add_type(Node *node) {
       }
       node->ty = node->lhs->ty->base;
       return;
+    case ND_STMT_EXPR:
+      if (node->body) {
+        Node *stmt = node->body;
+        while (stmt->next) {
+          stmt = stmt->next;
+        }
+        if (stmt->kind == ND_EXPR_STMT) {
+          node->ty = stmt->lhs->ty;
+          return;
+        }
+      }
+      exit(1);  // TODO: ERR
     default:
       break;
   }

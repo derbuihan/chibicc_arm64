@@ -219,7 +219,8 @@ static bool is_typename(Token *tok) {
 // unary = ("+" | "-" | "&" | "*") unary
 //       | postfix
 // postfix = primary ("[" expr "]")*
-// primary = "(" expr ")"
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
 //         | "sizeof" unary
 //         | funcall
 //         | ident
@@ -635,13 +636,26 @@ Node *postfix(Token **rest, Token *tok) {
   return node;
 }
 
-// primary = "(" expr ")"
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
 //         | "sizeof" unary
 //         | funcall
 //         | ident
 //         | str
 //         | num
 Node *primary(Token **rest, Token *tok) {
+  // "(" "{" stmt+ "}" ")"
+  if (equal(tok, "(") && equal(tok->next, "{")) {
+    Node *node = new_node(ND_STMT_EXPR, NULL, NULL);
+    node->body = compound_stmt(&tok, tok->next->next)->body;
+    *rest = tok;
+
+    assert(equal(tok, ")"));
+    *rest = tok->next;  // skip ")"
+    return node;
+  }
+
+  // "(" expr ")"
   if (equal(tok, "(")) {
     Node *node = expr(&tok, tok->next);
     assert(equal(tok, ")"));

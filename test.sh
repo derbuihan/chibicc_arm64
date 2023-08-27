@@ -212,4 +212,10 @@ test 165 'int main() { return "\xA5"[0]; }'
 test 255 'int main() { return "\x00ff"[0]; }'
 test 255 'int main() { return "\x00\xff"[1]; }'
 
+test 0 'int main() { return ({ 0; }); }'
+test 2 'int main() { return ({ 0; 1; 2; }); }'
+test 1 'int main() { ({ 0; return 1; 2; }); return 3; }'
+test 6 'int main() { return ({ 1; }) + ({ 2; }) + ({ 3; }); }'
+test 3 'int main() { return ({ int x = 3; x; }); }'
+
 echo "OK"
