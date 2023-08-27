@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cat << EOF | gcc -xc -c -o tmp2.o -
+cat << EOF | cc -x c -c -o tmp2.o -
   int ret11() {return 11;}
   int add11(int a) {return a + 11;}
   int add2(int a, int b) {return a+b;}
@@ -10,7 +10,7 @@ cat << EOF | gcc -xc -c -o tmp2.o -
 EOF
 
 function test() {
-  ./chibicc "$2" > tmp.s
+  echo "$2" | ./chibicc - > tmp.s
   cc -o tmp tmp.s tmp2.o
   ./tmp
   ret=$?
