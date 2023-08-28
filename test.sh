@@ -10,7 +10,7 @@ cat << EOF | cc -x c -c -o tmp2.o -
 EOF
 
 function test() {
-  echo "$2" | ./chibicc - > tmp.s
+  echo "$2" | ./chibicc -o tmp.s - || exit
   cc -o tmp tmp.s tmp2.o
   ./tmp
   ret=$?
