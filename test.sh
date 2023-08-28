@@ -218,4 +218,9 @@ test 1 'int main() { ({ 0; return 1; 2; }); return 3; }'
 test 6 'int main() { return ({ 1; }) + ({ 2; }) + ({ 3; }); }'
 test 3 'int main() { return ({ int x = 3; x; }); }'
 
+test 22 'int main() { /* return 11; */ return 22; }'
+test 22 'int main() { // return 11;
+return 22; }'
+
+
 echo "OK"

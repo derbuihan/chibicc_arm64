@@ -108,6 +108,23 @@ Token *tokenizer(char *p) {
   Token *cur = &head;
 
   while (*p) {
+    if (memcmp(p, "//", 2) == 0) {
+      p += 2;
+      while (*p != '\n') {
+        p++;
+      }
+      continue;
+    }
+
+    if (memcmp(p, "/*", 2) == 0) {
+      char *q = strstr(p + 2, "*/");
+      if (!q) {
+        exit(1);
+      }
+      p = q + 2;
+      continue;
+    }
+
     if (isspace(*p)) {
       p++;
       continue;
