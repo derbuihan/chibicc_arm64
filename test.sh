@@ -222,5 +222,8 @@ test 22 'int main() { /* return 11; */ return 22; }'
 test 22 'int main() { // return 11;
 return 22; }'
 
+test 2 'int main() { int x = 2; { int x = 3; } return x; }'
+test 2 'int main() { int x = 2; { int x = 3; } {int y = 4; return x;} }'
+test 3 'int main() { int x = 2; { x = 3; } return x; }'
 
 echo "OK"
