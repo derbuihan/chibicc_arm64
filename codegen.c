@@ -50,9 +50,7 @@ static void store(Type *ty) {
   }
 }
 
-static int align_to(int n, int align) {
-  return (n + align - 1) / align * align;
-}
+int align_to(int n, int align) { return (n + align - 1) / align * align; }
 
 static void gen_addr(Node *node) {
   switch (node->kind) {
