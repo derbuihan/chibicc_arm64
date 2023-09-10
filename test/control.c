@@ -235,5 +235,12 @@ int main() {
            ans;
          }));
 
+  ASSERT(3, (1, 2, 3));
+  ASSERT(6, ({
+           int i = 2, j = 3;
+           (i = 5, j) = 6;
+           j;
+         }));
+
   return 0;
 }

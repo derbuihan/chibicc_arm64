@@ -238,7 +238,7 @@ static bool is_typename(Token *tok) {
 //      | "{" compound-stmt
 //      | expr-stmt
 // expr-stmt = expr? ";"
-// expr = assign
+// expr = assign ("," expr)?
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -376,7 +376,7 @@ Node *declaration(Token **rest, Token *tok) {
   while (!equal(tok, ";")) {
     if (i++ > 0) {
       assert(equal(tok, ","));
-      *rest = tok->next;  // skip ','
+      *rest = tok = tok->next;  // skip ','
     }
     Type *ty = declarator(&tok, tok, basety);
     assert(ty->name->kind == TK_IDENT);
@@ -519,9 +519,14 @@ Node *expr_stmt(Token **rest, Token *tok) {
   return node;
 }
 
-// expr = assign
+// expr = assign ("," expr)?
 Node *expr(Token **rest, Token *tok) {
   Node *node = assign(&tok, tok);
+
+  if (equal(tok, ",")) {
+    return new_node(ND_COMMA, node, expr(rest, tok->next));
+  }
+
   *rest = tok;
   return node;
 }
