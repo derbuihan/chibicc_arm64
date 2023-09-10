@@ -37,7 +37,9 @@ static char *read_file(char *path) {
     fp = stdin;
   } else {
     fp = fopen(path, "r");
-    assert(!fp);
+    if (!fp) {
+      exit(1);
+    }
   }
 
   char *buf;

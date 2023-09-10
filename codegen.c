@@ -105,8 +105,8 @@ void gen_expr(Node *node) {
       return;
     case ND_FUNCALL: {
       int nargs = 0;
-      for (Node *n = node->args; n; n = n->next) {
-        gen_expr(n);
+      for (Node *arg = node->args; arg; arg = arg->next) {
+        gen_expr(arg);
         push();
         nargs++;
       }

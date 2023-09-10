@@ -12,6 +12,14 @@ bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
 
+static bool is_indent1(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
+}
+
+static bool is_indent2(char c) {
+  return is_indent1(c) || ('0' <= c && c <= '9');
+}
+
 static int from_hex(char c) {
   if ('0' <= c && c <= '9') {
     return c - '0';
@@ -146,15 +154,12 @@ Token *tokenizer(char *p) {
       continue;
     }
 
-    if (('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z') || (*p == '_')) {
-      char *q = p;
+    if (is_indent1(*p)) {
+      char *start = p;
       do {
         p++;
-      } while (('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z') ||
-               (*p == '_') || ('0' <= *p && *p <= '9'));
-      Token *tok = new_token(TK_IDENT, q, p);
-      cur->next = tok;
-      cur = cur->next;
+      } while (is_indent2(*p));
+      cur = cur->next = new_token(TK_IDENT, start, p);
       continue;
     }
 

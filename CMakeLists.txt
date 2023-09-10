@@ -1,9 +1,22 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.5)
 project(chibicc C)
-
 set(CMAKE_C_STANDARD 17)
 
-add_executable(chibicc main.c type.c strings.c tokenize.c parse.c codegen.c)
+# build chibicc
+file(GLOB SRCS *.c)
+add_executable(chibicc ${SRCS})
 
+# build tests
+file(GLOB TEST_SRCS test/*.c)
 enable_testing()
-add_test(test bash ${CMAKE_CURRENT_SOURCE_DIR}/test.sh)
+add_test(NAME driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh)
+foreach (TEST_SRC ${TEST_SRCS})
+    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    add_custom_target(
+            ${TEST_NAME}.exe ALL
+            COMMAND clang -o- -P -E -C ${TEST_SRC} | ./chibicc -o ${TEST_NAME}.s -
+            COMMAND clang -o ${TEST_NAME}.exe ${TEST_NAME}.s -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+            DEPENDS chibicc
+    )
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME}.exe)
+endforeach ()
