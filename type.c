@@ -67,6 +67,7 @@ void add_type(Node *node) {
     case ND_ASSIGN:
       if (node->lhs->ty->kind == TY_ARRAY) {
         // TODO: ERR not an lvalue
+        printf("not an lvalue\n");
         exit(1);
       }
       node->ty = node->lhs->ty;
@@ -85,6 +86,9 @@ void add_type(Node *node) {
     case ND_COMMA:
       node->ty = node->rhs->ty;
       return;
+    case ND_MEMBER:
+      node->ty = node->member->ty;
+      return;
     case ND_ADDR:
       if (node->lhs->ty->kind == TY_ARRAY) {
         node->ty = pointer_to(node->lhs->ty->base);
@@ -95,6 +99,7 @@ void add_type(Node *node) {
     case ND_DEREF:
       if (!node->lhs->ty->base) {
         // TODO: ERR invalid pointer dereference
+        printf("invalid pointer dereference\n");
         exit(1);
       }
       node->ty = node->lhs->ty->base;
@@ -110,6 +115,7 @@ void add_type(Node *node) {
           return;
         }
       }
+      printf("not a statement expression\n");
       exit(1);  // TODO: ERR
     default:
       break;

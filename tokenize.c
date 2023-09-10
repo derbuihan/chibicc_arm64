@@ -185,7 +185,8 @@ Token *tokenizer(char *p) {
   Token *tok = new_token(TK_EOF, p, p);
   cur->next = tok;
 
-  static char *kw[] = {"return", "if", "else", "for", "while", "int", "char"};
+  static char *kw[] = {"return", "if",  "else", "for",
+                       "while",  "int", "char", "struct"};
   for (Token *t = head.next; t->kind != TK_EOF; t = t->next) {
     for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
       if (equal(t, kw[i])) {

@@ -31,6 +31,10 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty);
 
 static Type *func_params(Token **rest, Token *tok, Type *ty);
 
+static Type *struct_decl(Token **rest, Token *tok);
+
+static void struct_members(Token **rest, Token *tok, Type *ty);
+
 static Node *declaration(Token **rest, Token *tok);
 
 static Node *compound_stmt(Token **rest, Token *tok);
@@ -160,6 +164,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
   // ptr + ptr
   if (lhs->ty->base && rhs->ty->base) {
     // TODO: ERR ptr + ptr
+    printf("ptr + ptr\n");
     exit(1);
   }
 
@@ -201,7 +206,31 @@ static Node *new_sub(Node *lhs, Node *rhs) {
   }
 
   // TODO: ERR num - ptr
+  printf("num - ptr\n");
   exit(1);
+}
+
+static Member *get_struct_member(Type *ty, Token *tok) {
+  for (Member *mem = ty->members; mem; mem = mem->next) {
+    if (mem->name->len == tok->len &&
+        !strncmp(mem->name->loc, tok->loc, tok->len)) {
+      return mem;
+    }
+  }
+  printf("no such member\n");
+  exit(1);
+}
+
+static Node *struct_ref(Node *lhs, Token *tok) {
+  add_type(lhs);
+  if (lhs->ty->kind != TY_STRUCT) {
+    printf("struct_ref: not a struct\n");
+    exit(1);
+  }
+
+  Node *node = new_node(ND_MEMBER, lhs, NULL);
+  node->member = get_struct_member(lhs->ty, tok);
+  return node;
 }
 
 static bool is_function(Token *tok) {
@@ -215,19 +244,21 @@ static bool is_function(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  return equal(tok, "char") || equal(tok, "int");
+  return equal(tok, "char") || equal(tok, "int") || equal(tok, "struct");
 }
 
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator "{" compound-stmt
-// declspec = "char" | "int"
+// declspec = "char" | "int" | "struct" struct-decl
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
 //             | ε
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
+// struct-decl = "{" struct-members
+// struct-members = (declspec declarator ("," declarator)* ";")* "}"
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
 // compound-stmt = (declaration | stmt)* "}"
@@ -244,9 +275,8 @@ static bool is_typename(Token *tok) {
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-" | "&" | "*") unary
-//       | postfix
-// postfix = primary ("[" expr "]")*
+// unary = ("+" | "-" | "&" | "*") unary | postfix
+// postfix = primary ("[" expr "]" | "." ident)*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" unary
@@ -293,16 +323,24 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "char" | "int"
+// declspec = "char" | "int" | "struct" struct-decl
 Type *declspec(Token **rest, Token *tok) {
   if (equal(tok, "char")) {
-    *rest = tok->next;
+    *rest = tok->next;  // skip "char"
     return ty_char;
   }
 
-  assert(equal(tok, "int"));
-  *rest = tok->next;  // skip "int";
-  return ty_int;
+  if (equal(tok, "int")) {
+    *rest = tok->next;  // skip "int"
+    return ty_int;
+  }
+
+  if (equal(tok, "struct")) {
+    return struct_decl(rest, tok->next);
+  }
+
+  printf("declspec: bad token\n");
+  exit(1);
 }
 
 // declarator = "*"* ident type-suffix
@@ -362,6 +400,55 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   ty->params = head.next;
   *rest = tok->next;  // skip ")"
   return ty;
+}
+
+// struct-decl = "{" struct-members
+static Type *struct_decl(Token **rest, Token *tok) {
+  assert(equal(tok, "{"));
+  tok = tok->next;  // skip "{"
+
+  Type *ty = calloc(1, sizeof(Type));
+  ty->kind = TY_STRUCT;
+  struct_members(rest, tok, ty);
+
+  int offset = 0;
+  for (Member *mem = ty->members; mem; mem = mem->next) {
+    mem->offset = offset;
+    offset += mem->ty->size;
+  }
+  ty->size = offset;
+
+  return ty;
+}
+
+// struct-members = (declspec declarator ("," declarator)* ";")* "}"
+static void struct_members(Token **rest, Token *tok, Type *ty) {
+  Member head = {};
+  Member *cur = &head;
+
+  while (!equal(tok, "}")) {
+    Type *basety = declspec(&tok, tok);
+    int i = 0;
+
+    while (!equal(tok, ";")) {
+      if (i++) {
+        assert(equal(tok, ","));
+        tok = tok->next;  // skip ","
+      }
+
+      Member *mem = calloc(1, sizeof(Member));
+      mem->ty = declarator(&tok, tok, basety);
+      mem->name = mem->ty->name;
+      cur = cur->next = mem;
+    }
+
+    assert(equal(tok, ";"));
+    tok = tok->next;  // skip ";"
+  }
+
+  assert(equal(tok, "}"));
+  *rest = tok->next;  // skip "}"
+  ty->members = head.next;
 }
 
 // declaration = declspec (declarator ("=" expr)?
@@ -628,8 +715,7 @@ Node *mul(Token **rest, Token *tok) {
   }
 }
 
-// unary = ("+" | "-" | "&" | "*") unary
-//       | postfix
+// unary = ("+" | "-" | "&" | "*") unary | postfix
 Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "+")) {
     Node *node = unary(&tok, tok->next);
@@ -660,19 +746,32 @@ Node *unary(Token **rest, Token *tok) {
   return node;
 }
 
-// postfix = primary ("[" expr "]")*
+// postfix = primary ("[" expr "]" | "." ident)*
 Node *postfix(Token **rest, Token *tok) {
   Node *node = primary(&tok, tok);
 
-  while (equal(tok, "[")) {
-    Node *idx = expr(&tok, tok->next);
-    assert(equal(tok, "]"));
-    tok = tok->next;  // skip "]"
-    node = new_node(ND_DEREF, new_add(node, idx), NULL);
-  }
+  for (;;) {
+    if (equal(tok, "[")) {
+      // x[y] is short for *(x+y)
+      Node *idx = expr(&tok, tok->next);
+      assert(equal(tok, "]"));
+      tok = tok->next;  // skip "]"
+      node = new_node(ND_DEREF, new_add(node, idx), NULL);
+      continue;
+    }
 
-  *rest = tok;
-  return node;
+    if (equal(tok, ".")) {
+      node = struct_ref(node, tok->next);
+      assert(equal(tok, "."));
+      tok = tok->next;  // skip "."
+      assert(tok->kind == TK_IDENT);
+      tok = tok->next;  // skip ident
+      continue;
+    }
+
+    *rest = tok;
+    return node;
+  }
 }
 
 // primary = "(" "{" stmt+ "}" ")"
@@ -750,6 +849,7 @@ Node *ident(Token **rest, Token *tok) {
 
   if (!var) {
     // TODO: ERR var is not defined
+    printf("var is not defined\n");
     exit(1);
   }
 
