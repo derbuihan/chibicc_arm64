@@ -1,9 +1,8 @@
 #include "chibicc.h"
 
 static FILE *output_file;
-
-static int count = 1;
 static int depth = 0;
+static int count = 1;
 static char *argreg32[] = {"w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7"};
 static char *argreg64[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 
@@ -168,6 +167,8 @@ void gen_expr(Node *node) {
     default:
       break;
   }
+
+  error_tok(node->tok, "invalid expression");
 }
 
 void gen_stmt(Node *node) {
@@ -219,6 +220,8 @@ void gen_stmt(Node *node) {
       return;
     }
   }
+
+  error_tok(node->tok, "invalid statement");
 }
 
 static void assign_lvar_offsets(Obj *prog) {
@@ -253,7 +256,6 @@ static void emit_data(Obj *prog) {
     } else {
       println("    .zero %d", var->ty->size);
     }
-    println(" ");
   }
 }
 

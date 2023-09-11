@@ -69,9 +69,7 @@ void add_type(Node *node) {
       return;
     case ND_ASSIGN:
       if (node->lhs->ty->kind == TY_ARRAY) {
-        // TODO: ERR not an lvalue
-        printf("not an lvalue\n");
-        exit(1);
+        error_tok(node->lhs->tok, "not an lvalue");
       }
       node->ty = node->lhs->ty;
       return;
@@ -101,9 +99,7 @@ void add_type(Node *node) {
       return;
     case ND_DEREF:
       if (!node->lhs->ty->base) {
-        // TODO: ERR invalid pointer dereference
-        printf("invalid pointer dereference\n");
-        exit(1);
+        error_tok(node->tok, "invalid pointer dereference");
       }
       node->ty = node->lhs->ty->base;
       return;
@@ -118,8 +114,8 @@ void add_type(Node *node) {
           return;
         }
       }
-      printf("not a statement expression\n");
-      exit(1);  // TODO: ERR
+      error_tok(node->tok,
+                "statement expression returning void is not supported");
     default:
       break;
   }

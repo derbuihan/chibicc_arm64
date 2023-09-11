@@ -171,10 +171,44 @@ static Token *read_string_literal(char *start) {
   return tok;
 }
 
+static bool is_keyword(Token *tok) {
+  static char *kw[] = {
+      "return", "if", "else", "for", "while", "int", "char", "struct",
+  };
+  for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
+    if (equal(tok, kw[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void convert_keywords(Token *tok) {
+  for (Token *t = tok; t->kind != TK_EOF; t = t->next) {
+    if (is_keyword(t)) {
+      t->kind = TK_KEYWORD;
+    }
+  }
+}
+
+static void add_line_numbers(Token *tok) {
+  char *p = current_input;
+  int n = 1;
+
+  do {
+    if (p == tok->loc) {
+      tok->line_no = n;
+      tok = tok->next;
+    }
+    if (*p == '\n') {
+      n++;
+    }
+  } while (*p++);
+}
+
 static Token *tokenize(char *filename, char *p) {
   current_filename = filename;
   current_input = p;
-
   Token head = {};
   Token *cur = &head;
 
@@ -244,18 +278,9 @@ static Token *tokenize(char *filename, char *p) {
 
     break;
   }
-  Token *tok = new_token(TK_EOF, p, p);
-  cur->next = tok;
-
-  static char *kw[] = {"return", "if",  "else", "for",
-                       "while",  "int", "char", "struct"};
-  for (Token *t = head.next; t->kind != TK_EOF; t = t->next) {
-    for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
-      if (equal(t, kw[i])) {
-        t->kind = TK_KEYWORD;
-      }
-    }
-  }
+  cur = cur->next = new_token(TK_EOF, p, p);
+  add_line_numbers(head.next);
+  convert_keywords(head.next);
   return head.next;
 }
 

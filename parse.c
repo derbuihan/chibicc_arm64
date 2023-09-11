@@ -140,7 +140,9 @@ static Obj *new_string_literal(char *p, Type *ty) {
 }
 
 static char *get_ident(Token *tok) {
-  assert(tok->kind == TK_IDENT);
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "expected an identifier");
+  }
   return strndup(tok->loc, tok->len);
 }
 
@@ -152,7 +154,7 @@ static void create_param_lvars(Type *param) {
 }
 
 // pointer + number
-static Node *new_add(Node *lhs, Node *rhs) {
+static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   add_type(lhs);
   add_type(rhs);
 
@@ -163,9 +165,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
 
   // ptr + ptr
   if (lhs->ty->base && rhs->ty->base) {
-    // TODO: ERR ptr + ptr
-    printf("ptr + ptr\n");
-    exit(1);
+    error_tok(tok, "invalid operands");
   }
 
   // num + ptr -> ptr + num
@@ -182,7 +182,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
 }
 
 // pointer - number
-static Node *new_sub(Node *lhs, Node *rhs) {
+static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   add_type(lhs);
   add_type(rhs);
 
@@ -205,9 +205,7 @@ static Node *new_sub(Node *lhs, Node *rhs) {
     return new_node(ND_DIV, new_node(ND_SUB, lhs, rhs), num_node);
   }
 
-  // TODO: ERR num - ptr
-  printf("num - ptr\n");
-  exit(1);
+  error_tok(tok, "invalid operands");
 }
 
 static Member *get_struct_member(Type *ty, Token *tok) {
@@ -217,15 +215,13 @@ static Member *get_struct_member(Type *ty, Token *tok) {
       return mem;
     }
   }
-  printf("no such member\n");
-  exit(1);
+  error_tok(tok, "no such member");
 }
 
 static Node *struct_ref(Node *lhs, Token *tok) {
   add_type(lhs);
   if (lhs->ty->kind != TY_STRUCT) {
-    printf("struct_ref: not a struct\n");
-    exit(1);
+    error_tok(lhs->tok, "not a struct");
   }
 
   Node *node = new_node(ND_MEMBER, lhs, NULL);
@@ -339,8 +335,7 @@ Type *declspec(Token **rest, Token *tok) {
     return struct_decl(rest, tok->next);
   }
 
-  printf("declspec: bad token\n");
-  exit(1);
+  error_tok(tok, "typename expected");
 }
 
 // declarator = "*"* ident type-suffix
@@ -350,7 +345,9 @@ Type *declarator(Token **rest, Token *tok, Type *ty) {
     *rest = tok = tok->next;
   }
 
-  assert(tok->kind == TK_IDENT);
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "expected a variable name");
+  }
 
   ty = type_suffix(rest, tok->next, ty);
   ty->name = tok;
@@ -687,13 +684,15 @@ Node *add(Token **rest, Token *tok) {
   Node *node = mul(&tok, tok);
 
   for (;;) {
+    Token *start = tok;
+
     if (equal(tok, "+")) {
-      node = new_add(node, mul(&tok, tok->next));
+      node = new_add(node, mul(&tok, tok->next), start);
       continue;
     }
 
     if (equal(tok, "-")) {
-      node = new_sub(node, mul(&tok, tok->next));
+      node = new_sub(node, mul(&tok, tok->next), start);
       continue;
     }
 
@@ -759,10 +758,11 @@ Node *postfix(Token **rest, Token *tok) {
   for (;;) {
     if (equal(tok, "[")) {
       // x[y] is short for *(x+y)
+      Token *start = tok;
       Node *idx = expr(&tok, tok->next);
       assert(equal(tok, "]"));
       tok = tok->next;  // skip "]"
-      node = new_node(ND_DEREF, new_add(node, idx), NULL);
+      node = new_node(ND_DEREF, new_add(node, idx, start), NULL);
       continue;
     }
 
@@ -854,9 +854,7 @@ Node *ident(Token **rest, Token *tok) {
   Obj *var = find_var(tok);
 
   if (!var) {
-    // TODO: ERR var is not defined
-    printf("var is not defined\n");
-    exit(1);
+    error_tok(tok, "undefined variable");
   }
 
   Node *node = new_node(ND_VAR, NULL, NULL);
