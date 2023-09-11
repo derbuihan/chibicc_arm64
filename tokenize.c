@@ -1,6 +1,61 @@
 #include "chibicc.h"
 
-Token *new_token(TokenKind kind, char *start, char *end) {
+// Input filename
+static char *current_filename;
+
+// Input string
+static char *current_input;
+
+void error(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
+static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
+  char *line = loc;
+  while (current_input < line && line[-1] != '\n') {
+    line--;
+  }
+
+  char *end = loc;
+  while (*end != '\n') {
+    end++;
+  }
+
+  int indent = fprintf(stderr, "%s:%d: ", current_filename, line_no);
+  fprintf(stderr, "%.*s\n", (int)(end - line), line);
+
+  int pos = loc - line + indent;
+
+  fprintf(stderr, "%*s", pos, "");
+  fprintf(stderr, "^ ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
+void error_at(char *loc, char *fmt, ...) {
+  int line_no = 1;
+  for (char *p = current_input; p < loc; p++) {
+    if (*p == '\n') {
+      line_no++;
+    }
+  }
+  va_list ap;
+  va_start(ap, fmt);
+  verror_at(line_no, loc, fmt, ap);
+}
+
+void error_tok(Token *tok, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verror_at(tok->line_no, tok->loc, fmt, ap);
+}
+
+static Token *new_token(TokenKind kind, char *start, char *end) {
   Token *tok = calloc(1, sizeof(Token));
   tok->kind = kind;
   tok->loc = start;
@@ -47,7 +102,9 @@ static char read_escaped_char(char **new_pos, char *p) {
   // Read a hexadecimal number
   if (*p == 'x') {
     p++;
-    assert(isxdigit(*p));
+    if (!isxdigit(*p)) {
+      error_at(p, "invalid hex escape sequence");
+    }
 
     int c = 0;
     for (; isxdigit(*p); p++) {
@@ -83,8 +140,11 @@ static char read_escaped_char(char **new_pos, char *p) {
 }
 
 static char *string_literal_end(char *p) {
+  char *start = p;
   for (; *p != '"'; p++) {
-    assert(*p != '\n' || *p != '\0');
+    if (*p == '\n' || *p == '\0') {
+      error_at(start, "unclosed string literal");
+    }
     if (*p == '\\') {
       p++;
     }
@@ -111,7 +171,10 @@ static Token *read_string_literal(char *start) {
   return tok;
 }
 
-Token *tokenizer(char *p) {
+static Token *tokenize(char *filename, char *p) {
+  current_filename = filename;
+  current_input = p;
+
   Token head = {};
   Token *cur = &head;
 
@@ -127,7 +190,7 @@ Token *tokenizer(char *p) {
     if (memcmp(p, "/*", 2) == 0) {
       char *q = strstr(p + 2, "*/");
       if (!q) {
-        exit(1);
+        error_at(p, "unclosed block comment");
       }
       p = q + 2;
       continue;
@@ -143,8 +206,7 @@ Token *tokenizer(char *p) {
       int val = strtol(p, &p, 10);
       Token *tok = new_token(TK_NUM, q, p);
       tok->val = val;
-      cur->next = tok;
-      cur = cur->next;
+      cur = cur->next = tok;
       continue;
     }
 
@@ -196,3 +258,44 @@ Token *tokenizer(char *p) {
   }
   return head.next;
 }
+
+static char *read_file(char *path) {
+  FILE *fp;
+
+  if (strcmp(path, "-") == 0) {
+    fp = stdin;
+  } else {
+    fp = fopen(path, "r");
+    if (!fp) {
+      error("cannot open %s: %s", path, strerror(errno));
+    }
+  }
+
+  char *buf;
+  size_t buflen;
+  FILE *out = open_memstream(&buf, &buflen);
+
+  for (;;) {
+    char buf2[4096];
+    int n = fread(buf2, 1, sizeof(buf2), fp);
+    if (n == 0) {
+      break;
+    }
+    fwrite(buf2, 1, n, out);
+  }
+
+  if (fp != stdin) {
+    fclose(fp);
+  }
+
+  fflush(out);
+  if (buflen == 0 || buf[buflen - 1] != '\n') {
+    fputc('\n', out);
+  }
+
+  fputc('\0', out);
+  fclose(out);
+  return buf;
+}
+
+Token *tokenize_file(char *path) { return tokenize(path, read_file(path)); }

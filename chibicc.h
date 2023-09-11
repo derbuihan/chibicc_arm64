@@ -35,11 +35,14 @@ struct Token {
   int len;
   Type *ty;
   char *str;
+  int line_no;
 };
 
+void error(char *fmt, ...);
+void error_at(char *loc, char *fmt, ...);
+void error_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
-
-Token *tokenizer(char *p);
+Token *tokenize_file(char *path);
 
 // parser
 
@@ -96,6 +99,7 @@ struct Node {
   NodeKind kind;  // Node kind
   Node *next;     // Next node
   Type *ty;       // Type, e.g. int or pointer to int
+  Token *tok;     // Representative token
 
   Node *lhs;  // Left node
   Node *rhs;  // Right node
