@@ -299,7 +299,7 @@ static bool is_typename(Token *tok) {
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-" | "&" | "*") unary | postfix
-// postfix = primary ("[" expr "]" | "." ident)*
+// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" unary
@@ -797,7 +797,7 @@ Node *unary(Token **rest, Token *tok) {
   return node;
 }
 
-// postfix = primary ("[" expr "]" | "." ident)*
+// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 Node *postfix(Token **rest, Token *tok) {
   Node *node = primary(&tok, tok);
 
@@ -816,6 +816,17 @@ Node *postfix(Token **rest, Token *tok) {
       node = struct_ref(node, tok->next);
       assert(equal(tok, "."));
       tok = tok->next;  // skip "."
+      assert(tok->kind == TK_IDENT);
+      tok = tok->next;  // skip ident
+      continue;
+    }
+
+    if (equal(tok, "->")) {
+      // x->y is short for (*x).y
+      node = new_node(ND_DEREF, node, NULL);
+      node = struct_ref(node, tok->next);
+      assert(equal(tok, "->"));
+      tok = tok->next;  // skip "->"
       assert(tok->kind == TK_IDENT);
       tok = tok->next;  // skip ident
       continue;

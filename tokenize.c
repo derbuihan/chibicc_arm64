@@ -171,6 +171,16 @@ static Token *read_string_literal(char *start) {
   return tok;
 }
 
+static int read_punct(char *p) {
+  static char *kw[] = {"==", "!=", "<=", ">=", "->"};
+  for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
+    if (memcmp(p, kw[i], strlen(kw[i])) == 0) {
+      return strlen(kw[i]);
+    }
+  }
+  return ispunct(*p) ? 1 : 0;
+}
+
 static bool is_keyword(Token *tok) {
   static char *kw[] = {
       "return", "if", "else", "for", "while", "int", "char", "struct",
@@ -259,20 +269,10 @@ static Token *tokenize(char *filename, char *p) {
       continue;
     }
 
-    if (memcmp(p, "==", 2) == 0 || memcmp(p, "!=", 2) == 0 ||
-        memcmp(p, "<=", 2) == 0 || memcmp(p, ">=", 2) == 0) {
-      Token *tok = new_token(TK_PUNCT, p, p + 2);
-      p += tok->len;
-      cur->next = tok;
-      cur = cur->next;
-      continue;
-    }
-
-    if (ispunct(*p)) {
-      Token *tok = new_token(TK_PUNCT, p, p + 1);
-      p += tok->len;
-      cur->next = tok;
-      cur = cur->next;
+    int punct_len = read_punct(p);
+    if (punct_len) {
+      cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+      p += cur->len;
       continue;
     }
 
