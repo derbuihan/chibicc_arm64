@@ -7,10 +7,18 @@ struct VarScope {
   Obj *var;
 };
 
+typedef struct TagScope TagScope;
+struct TagScope {
+  TagScope *next;
+  char *name;
+  Type *ty;
+};
+
 typedef struct Scope Scope;
 struct Scope {
   Scope *next;
   VarScope *vars;
+  TagScope *tags;
 };
 
 static Obj *locals;
@@ -153,6 +161,25 @@ static void create_param_lvars(Type *param) {
   }
 }
 
+static Type *find_tag(Token *tok) {
+  for (Scope *sc = scope; sc; sc = sc->next) {
+    for (TagScope *sc2 = sc->tags; sc2; sc2 = sc2->next) {
+      if (equal(tok, sc2->name)) {
+        return sc2->ty;
+      }
+    }
+  }
+  return NULL;
+}
+
+static void push_tag_scope(Token *tok, Type *ty) {
+  TagScope *sc = calloc(1, sizeof(TagScope));
+  sc->name = strndup(tok->loc, tok->len);
+  sc->ty = ty;
+  sc->next = scope->tags;
+  scope->tags = sc;
+}
+
 // pointer + number
 static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   add_type(lhs);
@@ -253,7 +280,7 @@ static bool is_typename(Token *tok) {
 //             | ε
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
-// struct-decl = "{" struct-members
+// struct-decl = ident? "{" struct-members
 // struct-members = (declspec declarator ("," declarator)* ";")* "}"
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
@@ -399,8 +426,23 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// struct-decl = "{" struct-members
+// struct-decl = ident? "{" struct-members
 static Type *struct_decl(Token **rest, Token *tok) {
+  Token *tag = NULL;
+  if (tok->kind == TK_IDENT) {
+    tag = tok;
+    tok = tok->next;
+  }
+
+  if (tag && !equal(tok, "{")) {
+    Type *ty = find_tag(tag);
+    if (!ty) {
+      error_tok(tag, "unknown struct type");
+    }
+    *rest = tok;
+    return ty;
+  }
+
   assert(equal(tok, "{"));
   tok = tok->next;  // skip "{"
 
@@ -420,6 +462,10 @@ static Type *struct_decl(Token **rest, Token *tok) {
     }
   }
   ty->size = align_to(offset, ty->align);
+
+  if (tag) {
+    push_tag_scope(tag, ty);
+  }
 
   return ty;
 }
