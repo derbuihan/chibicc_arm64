@@ -41,6 +41,10 @@ static Type *func_params(Token **rest, Token *tok, Type *ty);
 
 static Type *struct_decl(Token **rest, Token *tok);
 
+static Type *union_decl(Token **rest, Token *tok);
+
+static Type *struct_union_decl(Token **rest, Token *tok);
+
 static void struct_members(Token **rest, Token *tok, Type *ty);
 
 static Node *declaration(Token **rest, Token *tok);
@@ -247,8 +251,8 @@ static Member *get_struct_member(Type *ty, Token *tok) {
 
 static Node *struct_ref(Node *lhs, Token *tok) {
   add_type(lhs);
-  if (lhs->ty->kind != TY_STRUCT) {
-    error_tok(lhs->tok, "not a struct");
+  if (lhs->ty->kind != TY_STRUCT && lhs->ty->kind != TY_UNION) {
+    error_tok(lhs->tok, "not a struct nor a union");
   }
 
   Node *node = new_node(ND_MEMBER, lhs, NULL);
@@ -267,13 +271,19 @@ static bool is_function(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  return equal(tok, "char") || equal(tok, "int") || equal(tok, "struct");
+  char *kw[] = {"char", "int", "struct", "union"};
+  for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
+    if (equal(tok, kw[i])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator "{" compound-stmt
-// declspec = "char" | "int" | "struct" struct-decl
+// declspec = "char" | "int" | "struct" struct-decl | "union" union-decl
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
@@ -281,6 +291,9 @@ static bool is_typename(Token *tok) {
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
 // struct-decl = ident? "{" struct-members
+// struct-decl = struct-union-decl
+// union-decl = struct-union-decl
+// struct-union-decl = ident? ( "{" struct-members )?
 // struct-members = (declspec declarator ("," declarator)* ";")* "}"
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
@@ -346,7 +359,7 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "char" | "int" | "struct" struct-decl
+// declspec = "char" | "int" | "struct" struct-decl | "union" union-decl
 Type *declspec(Token **rest, Token *tok) {
   if (equal(tok, "char")) {
     *rest = tok->next;  // skip "char"
@@ -360,6 +373,10 @@ Type *declspec(Token **rest, Token *tok) {
 
   if (equal(tok, "struct")) {
     return struct_decl(rest, tok->next);
+  }
+
+  if (equal(tok, "union")) {
+    return union_decl(rest, tok->next);
   }
 
   error_tok(tok, "typename expected");
@@ -426,8 +443,44 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// struct-decl = ident? "{" struct-members
+// struct-decl = struct-union-decl
 static Type *struct_decl(Token **rest, Token *tok) {
+  Type *ty = struct_union_decl(rest, tok);
+  ty->kind = TY_STRUCT;
+
+  int offset = 0;
+  for (Member *mem = ty->members; mem; mem = mem->next) {
+    offset = align_to(offset, mem->ty->align);
+    mem->offset = offset;
+    offset += mem->ty->size;
+
+    if (ty->align < mem->ty->align) {
+      ty->align = mem->ty->align;
+    }
+  }
+  ty->size = align_to(offset, ty->align);
+  return ty;
+}
+
+// union-decl = struct-union-decl
+static Type *union_decl(Token **rest, Token *tok) {
+  Type *ty = struct_union_decl(rest, tok);
+  ty->kind = TY_UNION;
+
+  for (Member *mem = ty->members; mem; mem = mem->next) {
+    if (ty->align < mem->ty->align) {
+      ty->align = mem->ty->align;
+    }
+    if (ty->size < mem->ty->size) {
+      ty->size = mem->ty->size;
+    }
+  }
+  ty->size = align_to(ty->size, ty->align);
+  return ty;
+}
+
+// struct-union-decl = ident? ( "{" struct-members )?
+static Type *struct_union_decl(Token **rest, Token *tok) {
   Token *tag = NULL;
   if (tok->kind == TK_IDENT) {
     tag = tok;
@@ -447,26 +500,12 @@ static Type *struct_decl(Token **rest, Token *tok) {
   tok = tok->next;  // skip "{"
 
   Type *ty = calloc(1, sizeof(Type));
-  ty->kind = TY_STRUCT;
   struct_members(rest, tok, ty);
   ty->align = 1;
-
-  int offset = 0;
-  for (Member *mem = ty->members; mem; mem = mem->next) {
-    offset = align_to(offset, mem->ty->align);
-    mem->offset = offset;
-    offset += mem->ty->size;
-
-    if (ty->align < mem->ty->align) {
-      ty->align = mem->ty->align;
-    }
-  }
-  ty->size = align_to(offset, ty->align);
 
   if (tag) {
     push_tag_scope(tag, ty);
   }
-
   return ty;
 }
 

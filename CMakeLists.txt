@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 project(chibicc C)
 set(CMAKE_C_STANDARD 17)
 
@@ -7,9 +7,9 @@ file(GLOB SRCS *.c)
 add_executable(chibicc ${SRCS})
 
 # build tests
-file(GLOB TEST_SRCS test/*.c)
 enable_testing()
 add_test(NAME driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh)
+file(GLOB TEST_SRCS test/*.c)
 foreach (TEST_SRC ${TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     add_custom_target(
