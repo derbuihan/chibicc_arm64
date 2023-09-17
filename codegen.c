@@ -30,7 +30,7 @@ static void pop(char *arg) {
 }
 
 static void load(Type *ty) {
-  if (ty->kind == TY_ARRAY) {
+  if (ty->kind == TY_ARRAY || ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
     return;
   }
   if (ty->size == 1) {
@@ -42,6 +42,15 @@ static void load(Type *ty) {
 
 static void store(Type *ty) {
   pop("x1");
+
+  if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
+    for (int i = 0; i < ty->size; i++) {
+      println("    ldrsb w8, [x0, %d]", i);
+      println("    strb w8, [x1, %d]", i);
+    }
+    return;
+  }
+
   if (ty->size == 1) {
     println("    strb w0, [x1]");
   } else {
