@@ -282,7 +282,7 @@ static bool is_typename(Token *tok) {
 
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
-// function = declarator "{" compound-stmt
+// function = declarator (";" | "{" compound-stmt)
 // declspec = "char" | "short" | "int" | "long"
 //          | "struct" struct-decl | "union" union-decl
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
@@ -342,11 +342,18 @@ Token *global_variable(Token *tok, Type *basety) {
   return tok;
 }
 
-// function = declarator "{" compound-stmt
+// function = declarator (";" | "{" compound-stmt)
 Token *function(Token *tok, Type *basety) {
   Type *ty = declarator(&tok, tok, basety);
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
+  fn->is_definition = true;
+
+  if (equal(tok, ";")) {
+    tok = tok->next;  // skip ";"
+    fn->is_definition = false;
+    return tok;
+  }
 
   locals = NULL;
   enter_scope();
