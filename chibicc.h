@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +31,7 @@ typedef struct Token Token;
 struct Token {
   TokenKind kind;
   Token *next;
-  int val;
+  int64_t val;
   char *loc;
   int len;
   Type *ty;
@@ -123,8 +124,8 @@ struct Node {
   char *funcname;
   Node *args;
 
-  Obj *var;  // Variable name. Used if kind is ND_VAR.
-  int val;   // Value. Used if kind is ND_NUM.
+  Obj *var;     // Variable name. Used if kind is ND_VAR.
+  int64_t val;  // Value. Used if kind is ND_NUM.
 };
 
 Obj *parse(Token *tok);
@@ -133,7 +134,9 @@ Obj *parse(Token *tok);
 
 typedef enum {
   TY_CHAR,
+  TY_SHORT,
   TY_INT,
+  TY_LONG,
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
@@ -173,7 +176,11 @@ struct Member {
 
 extern Type *ty_char;
 
+extern Type *ty_short;
+
 extern Type *ty_int;
+
+extern Type *ty_long;
 
 bool is_integer(Type *ty);
 

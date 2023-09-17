@@ -313,5 +313,18 @@ int main() {
            y.a;
          }));
 
+  ASSERT(4, ({
+           struct {
+             short a, b;
+           } x;
+           sizeof x;
+         }));
+  ASSERT(16, ({
+           struct {
+             long a, b;
+           } x;
+           sizeof x;
+         }));
+
   return 0;
 }

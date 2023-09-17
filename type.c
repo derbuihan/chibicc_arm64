@@ -1,7 +1,9 @@
 #include "chibicc.h"
 
 Type *ty_char = &(Type){TY_CHAR, 1, 1};
+Type *ty_short = &(Type){TY_LONG, 2, 2};
 Type *ty_int = &(Type){TY_INT, 4, 4};
+Type *ty_long = &(Type){TY_LONG, 8, 8};
 
 static Type *new_type(TokenKind kind, int size, int align) {
   Type *ty = calloc(1, sizeof(Type));
@@ -11,7 +13,10 @@ static Type *new_type(TokenKind kind, int size, int align) {
   return ty;
 }
 
-bool is_integer(Type *ty) { return ty->kind == TY_INT || ty->kind == TY_CHAR; }
+bool is_integer(Type *ty) {
+  TypeKind k = ty->kind;
+  return k == TY_CHAR || k == TY_SHORT || k == TY_INT || k == TY_LONG;
+}
 
 Type *copy_type(Type *ty) {
   Type *ret = calloc(1, sizeof(Type));

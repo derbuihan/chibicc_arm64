@@ -376,5 +376,35 @@ int main() {
            b - a;
          }));
 
+  ASSERT(2, ({
+           short x;
+           sizeof(x);
+         }));
+  ASSERT(8, ({
+           long x;
+           sizeof(x);
+         }));
+
+  ASSERT(8, ({
+           char x = -8;
+           char y = 16;
+           x + y;
+         }));
+  ASSERT(8, ({
+           short x = -8;
+           short y = 16;
+           x + y;
+         }));
+  ASSERT(8, ({
+           int x = -8;
+           int y = 16;
+           x + y;
+         }));
+  ASSERT(8, ({
+           long x = -8;
+           long y = 16;
+           x + y;
+         }));
+
   return 0;
 }

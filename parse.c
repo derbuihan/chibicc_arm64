@@ -271,7 +271,7 @@ static bool is_function(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  char *kw[] = {"char", "int", "struct", "union"};
+  char *kw[] = {"char", "short", "int", "long", "struct", "union"};
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
       return true;
@@ -283,7 +283,8 @@ static bool is_typename(Token *tok) {
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator "{" compound-stmt
-// declspec = "char" | "int" | "struct" struct-decl | "union" union-decl
+// declspec = "char" | "short" | "int" | "long"
+//          | "struct" struct-decl | "union" union-decl
 // declarator = "*"* ident type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
@@ -359,16 +360,27 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "char" | "int" | "struct" struct-decl | "union" union-decl
+// declspec = "char" | "short" | "int" | "long"
+//          | "struct" struct-decl | "union" union-decl
 Type *declspec(Token **rest, Token *tok) {
   if (equal(tok, "char")) {
     *rest = tok->next;  // skip "char"
     return ty_char;
   }
 
+  if (equal(tok, "short")) {
+    *rest = tok->next;  // skip "short"
+    return ty_short;
+  }
+
   if (equal(tok, "int")) {
     *rest = tok->next;  // skip "int"
     return ty_int;
+  }
+
+  if (equal(tok, "long")) {
+    *rest = tok->next;  // skip "long"
+    return ty_long;
   }
 
   if (equal(tok, "struct")) {

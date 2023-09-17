@@ -35,6 +35,8 @@ static void load(Type *ty) {
   }
   if (ty->size == 1) {
     println("    ldrsb w0, [x0]");
+  } else if (ty->size == 2) {
+    println("    ldrsh w0, [x0]");
   } else if (ty->size == 4) {
     println("    ldr w0, [x0]");
   } else {
@@ -47,7 +49,7 @@ static void store(Type *ty) {
 
   if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
     for (int i = 0; i < ty->size; i++) {
-      println("    ldrsb w8, [x0, %d]", i);
+      println("    ldrb w8, [x0, %d]", i);
       println("    strb w8, [x1, %d]", i);
     }
     return;
@@ -55,6 +57,8 @@ static void store(Type *ty) {
 
   if (ty->size == 1) {
     println("    strb w0, [x1]");
+  } else if (ty->size == 2) {
+    println("    strh w0, [x1]");
   } else if (ty->size == 4) {
     println("    str w0, [x1]");
   } else {
@@ -277,6 +281,9 @@ static void store_gp(int r, int offset, int sz) {
   switch (sz) {
     case 1:
       println("    strb %s, [x29, %d]", argreg32[r], offset);
+      return;
+    case 2:
+      println("    strh %s, [x29, %d]", argreg32[r], offset);
       return;
     case 4:
       println("    str %s, [x29, %d]", argreg32[r], offset);

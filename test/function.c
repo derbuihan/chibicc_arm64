@@ -9,6 +9,8 @@ int add8(int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8) {
   return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
 }
 int sub_char(char x, char y, char z) { return x - y - z; }
+int sub_short(short x, short y, short z) { return x - y - z; }
+int sub_long(long x, long y, long z) { return x - y - z; }
 int fib(int x) {
   if (x <= 1) return 1;
   return fib(x - 1) + fib(x - 2);
@@ -25,6 +27,8 @@ int main() {
   ASSERT(44, add2(11, 22 + ret11()));
   ASSERT(55, fib(9));
   ASSERT(1, ({ sub_char(7, 3, 3); }));
+  ASSERT(1, ({ sub_short(7, 3, 3); }));
+  ASSERT(1, ({ sub_long(7, 3, 3); }));
 
   return 0;
 }
