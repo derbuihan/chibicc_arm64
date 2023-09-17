@@ -285,7 +285,7 @@ static bool is_typename(Token *tok) {
 // function = declarator "{" compound-stmt
 // declspec = "char" | "short" | "int" | "long"
 //          | "struct" struct-decl | "union" union-decl
-// declarator = "*"* ident type-suffix
+// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
 //             | ε
@@ -394,11 +394,21 @@ Type *declspec(Token **rest, Token *tok) {
   error_tok(tok, "typename expected");
 }
 
-// declarator = "*"* ident type-suffix
+// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 Type *declarator(Token **rest, Token *tok, Type *ty) {
   while (equal(tok, "*")) {
     ty = pointer_to(ty);
     *rest = tok = tok->next;
+  }
+
+  if (equal(tok, "(")) {
+    Token *start = tok;
+    Type dummy = {};
+    declarator(&tok, start->next, &dummy);
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ')'
+    ty = type_suffix(rest, tok, ty);
+    return declarator(&tok, start->next, ty);
   }
 
   if (tok->kind != TK_IDENT) {
