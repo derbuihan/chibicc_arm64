@@ -245,11 +245,11 @@ int main() {
            a_1 + a_2 + a_3 + a_4 + a_5;
          }));
 
-  ASSERT(8, ({
+  ASSERT(4, ({
            int x;
            sizeof(x);
          }));
-  ASSERT(8, ({
+  ASSERT(4, ({
            int x;
            sizeof x;
          }));
@@ -257,23 +257,23 @@ int main() {
            int *x;
            sizeof(x);
          }));
-  ASSERT(32, ({
+  ASSERT(16, ({
            int x[4];
            sizeof(x);
          }));
-  ASSERT(96, ({
+  ASSERT(48, ({
            int x[3][4];
            sizeof(x);
          }));
-  ASSERT(32, ({
+  ASSERT(16, ({
            int x[3][4];
            sizeof(*x);
          }));
-  ASSERT(8, ({
+  ASSERT(4, ({
            int x[3][4];
            sizeof(**x);
          }));
-  ASSERT(9, ({
+  ASSERT(5, ({
            int x[3][4];
            sizeof(**x) + 1;
          }));
@@ -316,8 +316,8 @@ int main() {
            g3[3] = 3;
            g3[3];
          }));
-  ASSERT(8, ({ sizeof(g1); }));
-  ASSERT(32, ({ sizeof(g3); }));
+  ASSERT(4, ({ sizeof(g1); }));
+  ASSERT(16, ({ sizeof(g3); }));
 
   ASSERT(1, ({
            char x = 1;
@@ -359,7 +359,7 @@ int main() {
            x;
          }));
 
-  ASSERT(15, ({
+  ASSERT(7, ({
            int x;
            int y;
            char z;

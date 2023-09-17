@@ -44,6 +44,8 @@ void error_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
 Token *tokenize_file(char *path);
 
+#define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
+
 // parser
 
 typedef struct Obj Obj;

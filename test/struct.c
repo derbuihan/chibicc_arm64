@@ -119,38 +119,38 @@ int main() {
            x.a.b;
          }));
 
-  ASSERT(8, ({
+  ASSERT(4, ({
            struct {
              int a;
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              int a;
              int b;
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              int a, b;
            } x;
            sizeof(x);
          }));
-  ASSERT(24, ({
+  ASSERT(12, ({
            struct {
              int a[3];
            } x;
            sizeof(x);
          }));
-  ASSERT(32, ({
+  ASSERT(16, ({
            struct {
              int a;
            } x[4];
            sizeof(x);
          }));
-  ASSERT(48, ({
+  ASSERT(24, ({
            struct {
              int a[3];
            } x[2];
@@ -163,14 +163,14 @@ int main() {
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              int a;
              char b;
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              char a;
              int b;
@@ -183,7 +183,7 @@ int main() {
            sizeof(x);
          }));
 
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct t {
              int a;
              int b;
@@ -191,7 +191,7 @@ int main() {
            struct t y;
            sizeof(y);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct t {
              int a;
              int b;

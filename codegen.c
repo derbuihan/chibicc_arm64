@@ -35,6 +35,8 @@ static void load(Type *ty) {
   }
   if (ty->size == 1) {
     println("    ldrsb w0, [x0]");
+  } else if (ty->size == 4) {
+    println("    ldr w0, [x0]");
   } else {
     println("    ldr x0, [x0]");
   }
@@ -53,6 +55,8 @@ static void store(Type *ty) {
 
   if (ty->size == 1) {
     println("    strb w0, [x1]");
+  } else if (ty->size == 4) {
+    println("    str w0, [x1]");
   } else {
     println("    str x0, [x1]");
   }
@@ -269,6 +273,21 @@ static void emit_data(Obj *prog) {
   }
 }
 
+static void store_gp(int r, int offset, int sz) {
+  switch (sz) {
+    case 1:
+      println("    strb %s, [x29, %d]", argreg32[r], offset);
+      return;
+    case 4:
+      println("    str %s, [x29, %d]", argreg32[r], offset);
+      return;
+    case 8:
+      println("    str %s, [x29, %d]", argreg64[r], offset);
+      return;
+  }
+  unreachable();
+}
+
 static void emit_text(Obj *prog) {
   for (Obj *fn = prog; fn; fn = fn->next) {
     if (!fn->is_function) {
@@ -286,11 +305,7 @@ static void emit_text(Obj *prog) {
 
     int i = 0;
     for (Obj *var = fn->params; var; var = var->next) {
-      if (var->ty->size == 1) {
-        println("    strb %s, [x29, %d]", argreg32[i++], var->offset);
-      } else {
-        println("    str %s, [x29, %d]", argreg64[i++], var->offset);
-      }
+      store_gp(i++, var->offset, var->ty->size);
     }
 
     gen_stmt(fn->body);
