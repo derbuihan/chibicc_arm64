@@ -444,5 +444,7 @@ int main() {
            y[0][0];
          }));
 
+  { void *x; }
+
   return 0;
 }

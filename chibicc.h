@@ -134,6 +134,7 @@ Obj *parse(Token *tok);
 // type
 
 typedef enum {
+  TY_VOID,
   TY_CHAR,
   TY_SHORT,
   TY_INT,
@@ -174,6 +175,8 @@ struct Member {
   Token *name;
   int offset;
 };
+
+extern Type *ty_void;
 
 extern Type *ty_char;
 

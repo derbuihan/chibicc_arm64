@@ -271,7 +271,7 @@ static bool is_function(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  char *kw[] = {"char", "short", "int", "long", "struct", "union"};
+  char *kw[] = {"void", "char", "short", "int", "long", "struct", "union"};
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
       return true;
@@ -283,7 +283,7 @@ static bool is_typename(Token *tok) {
 // program = (declspec global-variable | declspec function)*
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator (";" | "{" compound-stmt)
-// declspec = "char" | "short" | "int" | "long"
+// declspec = "void" | "char" | "short" | "int" | "long"
 //          | "struct" struct-decl | "union" union-decl
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 // type-suffix = "(" func-params
@@ -367,9 +367,14 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "char" | "short" | "int" | "long"
+// declspec = "void" | "char" | "short" | "int" | "long"
 //          | "struct" struct-decl | "union" union-decl
 Type *declspec(Token **rest, Token *tok) {
+  if (equal(tok, "void")) {
+    *rest = tok->next;  // skip "void"
+    return ty_void;
+  }
+
   if (equal(tok, "char")) {
     *rest = tok->next;  // skip "char"
     return ty_char;
@@ -583,8 +588,11 @@ Node *declaration(Token **rest, Token *tok) {
       *rest = tok = tok->next;  // skip ','
     }
     Type *ty = declarator(&tok, tok, basety);
-    assert(ty->name->kind == TK_IDENT);
+    if (ty->kind == TY_VOID) {
+      error_tok(ty->name, "variable declared void");
+    }
 
+    assert(ty->name->kind == TK_IDENT);
     Obj *var = new_lvar(get_ident(ty->name), ty);
     if (!equal(tok, "=")) {
       continue;
