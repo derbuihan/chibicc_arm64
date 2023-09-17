@@ -367,43 +367,71 @@ Token *function(Token *tok, Type *basety) {
   return tok;
 }
 
-// declspec = "void" | "char" | "short" | "int" | "long"
-//          | "struct" struct-decl | "union" union-decl
+// declspec = ("void" | "char" | "short" | "int" | "long"
+//            | "struct" struct-decl | "union" union-decl)+
 Type *declspec(Token **rest, Token *tok) {
-  if (equal(tok, "void")) {
-    *rest = tok->next;  // skip "void"
-    return ty_void;
+  enum {
+    VOID = 1 << 0,
+    CHAR = 1 << 2,
+    SHORT = 1 << 4,
+    INT = 1 << 6,
+    LONG = 1 << 8,
+    OTHER = 1 << 10,
+  };
+  Type *ty = ty_int;
+  int counter = 0;
+
+  while (is_typename(tok)) {
+    if (equal(tok, "struct")) {
+      ty = struct_decl(&tok, tok->next);
+      counter += OTHER;
+      continue;
+    } else if (equal(tok, "union")) {
+      ty = union_decl(&tok, tok->next);
+      counter += OTHER;
+      continue;
+    } else if (equal(tok, "void")) {
+      counter += VOID;
+    } else if (equal(tok, "char")) {
+      counter += CHAR;
+    } else if (equal(tok, "short")) {
+      counter += SHORT;
+    } else if (equal(tok, "int")) {
+      counter += INT;
+    } else if (equal(tok, "long")) {
+      counter += LONG;
+    } else {
+      unreachable();
+    }
+
+    switch (counter) {
+      case VOID:
+        ty = ty_void;
+        break;
+      case CHAR:
+        ty = ty_char;
+        break;
+      case SHORT:
+      case SHORT + INT:
+        ty = ty_short;
+        break;
+      case INT:
+        ty = ty_int;
+        break;
+      case LONG:
+      case LONG + INT:
+      case LONG + LONG:
+      case LONG + LONG + INT:
+        ty = ty_long;
+        break;
+      default:
+        error_tok(tok, "invalid type");
+    }
+    tok = tok->next;
   }
 
-  if (equal(tok, "char")) {
-    *rest = tok->next;  // skip "char"
-    return ty_char;
-  }
-
-  if (equal(tok, "short")) {
-    *rest = tok->next;  // skip "short"
-    return ty_short;
-  }
-
-  if (equal(tok, "int")) {
-    *rest = tok->next;  // skip "int"
-    return ty_int;
-  }
-
-  if (equal(tok, "long")) {
-    *rest = tok->next;  // skip "long"
-    return ty_long;
-  }
-
-  if (equal(tok, "struct")) {
-    return struct_decl(rest, tok->next);
-  }
-
-  if (equal(tok, "union")) {
-    return union_decl(rest, tok->next);
-  }
-
-  error_tok(tok, "typename expected");
+  *rest = tok;
+  return ty;
 }
 
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
