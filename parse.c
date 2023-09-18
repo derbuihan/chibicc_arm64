@@ -74,6 +74,8 @@ static Node *add(Token **rest, Token *tok);
 
 static Node *mul(Token **rest, Token *tok);
 
+static Node *cast(Token **rest, Token *tok);
+
 static Node *unary(Token **rest, Token *tok);
 
 static Node *postfix(Token **rest, Token *tok);
@@ -335,8 +337,9 @@ static bool is_typename(Token *tok) {
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
-// mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-" | "&" | "*") unary | postfix
+// mul = cast ("*" cast | "/" cast)*
+// cast = "(" type-name ")" cast | unary
+// unary = ("+" | "-" | "&" | "*") cast | postfix
 // postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
@@ -920,17 +923,17 @@ Node *add(Token **rest, Token *tok) {
   }
 }
 
-// mul = unary ("*" unary | "/" unary)*
+// mul = cast ("*" cast | "/" cast)*
 Node *mul(Token **rest, Token *tok) {
-  Node *node = unary(&tok, tok);
+  Node *node = cast(&tok, tok);
 
   for (;;) {
     if (equal(tok, "*")) {
-      node = new_node(ND_MUL, node, unary(&tok, tok->next));
+      node = new_node(ND_MUL, node, cast(&tok, tok->next));
       continue;
     }
     if (equal(tok, "/")) {
-      node = new_node(ND_DIV, node, unary(&tok, tok->next));
+      node = new_node(ND_DIV, node, cast(&tok, tok->next));
       continue;
     }
 
@@ -939,28 +942,47 @@ Node *mul(Token **rest, Token *tok) {
   }
 }
 
-// unary = ("+" | "-" | "&" | "*") unary | postfix
+// cast = "(" type-name ")" cast | unary
+Node *cast(Token **rest, Token *tok) {
+  if (equal(tok, "(") && is_typename(tok->next)) {
+    Token *start = tok;
+    Type *ty = type_name(&tok, tok->next);
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ")"
+
+    Node *lhs = cast(rest, tok);
+    add_type(lhs);
+    Node *node = new_node(ND_CAST, lhs, NULL);
+    node->tok = lhs->tok;
+    node->ty = copy_type(ty);
+
+    return node;
+  }
+  return unary(rest, tok);
+}
+
+// unary = ("+" | "-" | "&" | "*") cast | postfix
 Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "+")) {
-    Node *node = unary(&tok, tok->next);
+    Node *node = cast(&tok, tok->next);
     *rest = tok;
     return node;
   }
 
   if (equal(tok, "-")) {
-    Node *node = new_node(ND_NEG, unary(&tok, tok->next), NULL);
+    Node *node = new_node(ND_NEG, cast(&tok, tok->next), NULL);
     *rest = tok;
     return node;
   }
 
   if (equal(tok, "&")) {
-    Node *node = new_node(ND_ADDR, unary(&tok, tok->next), NULL);
+    Node *node = new_node(ND_ADDR, cast(&tok, tok->next), NULL);
     *rest = tok;
     return node;
   }
 
   if (equal(tok, "*")) {
-    Node *node = new_node(ND_DEREF, unary(&tok, tok->next), NULL);
+    Node *node = new_node(ND_DEREF, cast(&tok, tok->next), NULL);
     *rest = tok;
     return node;
   }

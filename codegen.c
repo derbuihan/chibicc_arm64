@@ -94,9 +94,64 @@ static void gen_addr(Node *node) {
   }
 }
 
+static enum { I8, I16, I32, I64 };
+
+static int getTypeId(Type *ty) {
+  switch (ty->kind) {
+    case TY_CHAR:
+      return I8;
+    case TY_SHORT:
+      return I16;
+    case TY_INT:
+      return I32;
+  }
+  return I64;
+}
+
+static char i32i8[] = "sxtb w0, w0";
+static char i32i16[] = "sxth w0, w0";
+static char i32i64[] = "sxtw x0, w0";
+
+static char *cast_table[][4] = {
+    {NULL, NULL, NULL, i32i64},
+    {i32i8, NULL, NULL, i32i64},
+    {i32i8, i32i16, NULL, i32i64},
+    {i32i8, i32i16, NULL, NULL},
+};
+
+static void cast(Type *from, Type *to) {
+  if (to->kind == TY_VOID) {
+    return;
+  }
+  int t1 = getTypeId(from);
+  int t2 = getTypeId(to);
+  if (cast_table[t1][t2]) {
+    println("    %s", cast_table[t1][t2]);
+  }
+}
+
 void gen_expr(Node *node) {
   switch (node->kind) {
     case ND_NUM:
+      if (node->val > 281474976710655) {
+        println("    mov x0, %d", node->val & 0xFFFF);
+        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
+        println("    movk x0, %d, lsl #32", (node->val & 0xFFFF00000000) >> 32);
+        println("    movk x0, %d, lsl #48",
+                (node->val & 0xFFFF000000000000) >> 48);
+        return;
+      }
+      if (node->val > 4294967295) {
+        println("    mov x0, %d", node->val & 0xFFFF);
+        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
+        println("    movk x0, %d, lsl #32", (node->val & 0xFFFF00000000) >> 32);
+        return;
+      }
+      if (node->val > 65535) {
+        println("    mov x0, %d", node->val & 0xFFFF);
+        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
+        return;
+      }
       println("    mov x0, %d", node->val);
       return;
     case ND_NEG:
@@ -129,6 +184,10 @@ void gen_expr(Node *node) {
     case ND_COMMA:
       gen_expr(node->lhs);
       gen_expr(node->rhs);
+      return;
+    case ND_CAST:
+      gen_expr(node->lhs);
+      cast(node->lhs->ty, node->ty);
       return;
     case ND_FUNCALL: {
       int nargs = 0;

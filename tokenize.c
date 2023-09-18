@@ -247,7 +247,7 @@ static Token *tokenize(char *filename, char *p) {
 
     if (isdigit(*p)) {
       char *q = p;
-      int val = strtol(p, &p, 10);
+      int64_t val = strtol(p, &p, 10);
       Token *tok = new_token(TK_NUM, q, p);
       tok->val = val;
       cur = cur->next = tok;
