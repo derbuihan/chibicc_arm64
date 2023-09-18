@@ -80,6 +80,10 @@ static Node *postfix(Token **rest, Token *tok);
 
 static Node *primary(Token **rest, Token *tok);
 
+static Type *type_name(Token **rest, Token *tok);
+
+static Type *abstract_declarator(Token **rest, Token *tok, Type *ty);
+
 static Node *ident(Token **rest, Token *tok);
 
 static Node *funcall(Token **rest, Token *tok);
@@ -336,11 +340,14 @@ static bool is_typename(Token *tok) {
 // postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
+//         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | funcall
 //         | ident
 //         | str
 //         | num
+// type-name = declspec abstract-declarator
+// abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
 // funcall = ident "(" (assign ("," assign)*)? ")"
 // num = 1, 2, 3, ...
@@ -1005,6 +1012,7 @@ Node *postfix(Token **rest, Token *tok) {
 
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
+//         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | funcall
 //         | ident
@@ -1027,6 +1035,18 @@ Node *primary(Token **rest, Token *tok) {
     Node *node = expr(&tok, tok->next);
     assert(equal(tok, ")"));
     *rest = tok->next;  // skip ")"
+    return node;
+  }
+
+  // "sizeof" "(" type-name ")"
+  if (equal(tok, "sizeof") && equal(tok->next, "(") &&
+      is_typename(tok->next->next)) {
+    Type *ty = type_name(&tok, tok->next->next);
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ")"
+    Node *node = new_node(ND_NUM, NULL, NULL);
+    node->val = ty->size;
+    *rest = tok;
     return node;
   }
 
@@ -1069,6 +1089,31 @@ Node *primary(Token **rest, Token *tok) {
     *rest = tok;
     return node;
   }
+}
+
+// type-name = declspec abstract-declarator
+Type *type_name(Token **rest, Token *tok) {
+  Type *ty = declspec(&tok, tok, NULL);
+  return abstract_declarator(rest, tok, ty);
+}
+
+// abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
+  while (equal(tok, "*")) {
+    ty = pointer_to(ty);
+    tok = tok->next;
+  }
+
+  if (equal(tok, "(")) {
+    Token *start = tok;
+    Type dummy = {};
+    abstract_declarator(&tok, start->next, &dummy);
+    assert(equal(tok, ")"));
+    ty = type_suffix(rest, tok->next, ty);
+    return abstract_declarator(&tok, start->next, ty);
+  }
+
+  return type_suffix(rest, tok, ty);
 }
 
 // ident = 'a', ..., 'Z', 'a1', ..., 'a_1', ...
