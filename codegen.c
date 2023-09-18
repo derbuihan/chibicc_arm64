@@ -152,34 +152,42 @@ void gen_expr(Node *node) {
   gen_expr(node->lhs);
   pop("x1");
 
+  char *r0, *r1;
+  if (node->lhs->ty->kind == TY_LONG || node->lhs->ty->base) {
+    r0 = "x0";
+    r1 = "x1";
+  } else {
+    r0 = "w0";
+    r1 = "w1";
+  }
+
   switch (node->kind) {
     case ND_ADD:
-      println("    add x0, x0, x1");
+      println("    add %s, %s, %s", r0, r0, r1);
       return;
     case ND_SUB:
-      println("    sub x0, x0, x1");
+      println("    sub %s, %s, %s", r0, r0, r1);
       return;
     case ND_MUL:
-      println("    mul x0, x0, x1");
+      println("    mul %s, %s, %s", r0, r0, r1);
       return;
     case ND_DIV:
-      println("    sdiv x0, x0, x1");
+      println("    sdiv %s, %s, %s", r0, r0, r1);
       return;
     case ND_EQ:
-      println("    cmp x0, x1");
-      println("    cset x0, EQ");
-      return;
     case ND_NE:
-      println("    cmp x0, x1");
-      println("    cset x0, NE");
-      return;
     case ND_LT:
-      println("    cmp x0, x1");
-      println("    cset x0, LT");
-      return;
     case ND_LE:
-      println("    cmp x0, x1");
-      println("    cset x0, LE");
+      println("    cmp %s, %s", r0, r1);
+      if (node->kind == ND_EQ) {
+        println("    cset %s, EQ", r0);
+      } else if (node->kind == ND_NE) {
+        println("    cset %s, NE", r0);
+      } else if (node->kind == ND_LT) {
+        println("    cset %s, LT", r0);
+      } else if (node->kind == ND_LE) {
+        println("    cset %s, LE", r0);
+      }
       return;
     default:
       break;
