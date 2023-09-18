@@ -13,10 +13,19 @@ file(GLOB TEST_SRCS test/*.c)
 foreach (TEST_SRC ${TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     add_custom_target(
-            ${TEST_NAME}.exe ALL
-            COMMAND clang -o- -P -E -C ${TEST_SRC} | ./chibicc -o ${TEST_NAME}.s -
-            COMMAND clang -o ${TEST_NAME}.exe ${TEST_NAME}.s -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+            ${TEST_NAME}.c ALL
+            COMMAND clang -o ${TEST_NAME}.c -P -E -C ${TEST_SRC}
             DEPENDS chibicc
+    )
+    add_custom_target(
+            ${TEST_NAME}.s ALL
+            COMMAND ./chibicc -o ${TEST_NAME}.s ${TEST_NAME}.c
+            DEPENDS ${TEST_NAME}.c
+    )
+    add_custom_target(
+            ${TEST_NAME}.exe ALL
+            COMMAND clang -o ${TEST_NAME}.exe ${TEST_NAME}.s -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+            DEPENDS ${TEST_NAME}.s
     )
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME}.exe)
 endforeach ()
