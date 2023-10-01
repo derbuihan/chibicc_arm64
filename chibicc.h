@@ -130,6 +130,8 @@ struct Node {
   int64_t val;  // Value. Used if kind is ND_NUM.
 };
 
+Node *new_node(NodeKind kind, Node *lhs, Node *rhs);
+
 Obj *parse(Token *tok);
 
 // type

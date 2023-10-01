@@ -221,6 +221,7 @@ static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   // ptr + num
   Node *num_node = new_node(ND_NUM, NULL, NULL);
   num_node->val = lhs->ty->base->size;
+  num_node->ty = ty_long;
   return new_node(ND_ADD, lhs, new_node(ND_MUL, rhs, num_node));
 }
 
@@ -238,6 +239,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   if (lhs->ty->base && is_integer(rhs->ty)) {
     Node *num_node = new_node(ND_NUM, NULL, NULL);
     num_node->val = lhs->ty->base->size;
+    num_node->ty = ty_long;
     return new_node(ND_SUB, lhs, new_node(ND_MUL, rhs, num_node));
   }
 

@@ -26,5 +26,14 @@ int main() {
            int b;
          }));
 
+  ASSERT(8, sizeof(-10 + (long)5));
+  ASSERT(8, sizeof(-10 - (long)5));
+  ASSERT(8, sizeof(-10 * (long)5));
+  ASSERT(8, sizeof(-10 / (long)5));
+  ASSERT(8, sizeof((long)-10 + 5));
+  ASSERT(8, sizeof((long)-10 - 5));
+  ASSERT(8, sizeof((long)-10 * 5));
+  ASSERT(8, sizeof((long)-10 / 5));
+
   return 0;
 }

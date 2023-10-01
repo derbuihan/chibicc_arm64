@@ -40,5 +40,7 @@ int main() {
   ASSERT(1, 1 >= 1);
   ASSERT(0, 1 >= 2);
 
+  ASSERT(0, 1073741824 * 100 / 100);
+
   return 0;
 }
