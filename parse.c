@@ -32,6 +32,8 @@ static Obj *globals;
 
 static Scope *scope = &(Scope){};
 
+static Obj *current_fn;
+
 static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
@@ -404,6 +406,7 @@ Token *function(Token *tok, Type *basety) {
     return tok;
   }
 
+  current_fn = fn;
   locals = NULL;
   enter_scope();
   create_param_lvars(ty->params);
@@ -747,9 +750,14 @@ Node *compound_stmt(Token **rest, Token *tok) {
 //      | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
   if (equal(tok, "return")) {
-    Node *node = new_node(ND_RETURN, expr(&tok, tok->next), NULL);
+    Node *node = new_node(ND_RETURN, NULL, NULL);
+    Node *exp = expr(&tok, tok->next);
     assert(equal(tok, ";"));
     *rest = tok->next;  // skip ";"
+
+    add_type(exp);
+    node->lhs = new_node(ND_CAST, exp, NULL);
+    node->lhs->ty = current_fn->ty->return_ty;
     return node;
   }
 
