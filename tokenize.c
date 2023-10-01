@@ -34,7 +34,6 @@ static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
   fprintf(stderr, "^ ");
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
-  exit(1);
 }
 
 void error_at(char *loc, char *fmt, ...) {
@@ -47,12 +46,14 @@ void error_at(char *loc, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   verror_at(line_no, loc, fmt, ap);
+  exit(1);
 }
 
 void error_tok(Token *tok, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   verror_at(tok->line_no, tok->loc, fmt, ap);
+  exit(1);
 }
 
 static Token *new_token(TokenKind kind, char *start, char *end) {

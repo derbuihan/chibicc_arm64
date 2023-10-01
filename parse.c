@@ -1164,6 +1164,15 @@ Node *funcall(Token **rest, Token *tok) {
   assert(equal(tok, "("));
   tok = tok->next;
 
+  VarScope *sc = find_var(start);
+  if (!sc) {
+    error_tok(start, "implicit declaration of a function");
+  }
+  if (!sc->var || sc->var->ty->kind != TY_FUNC) {
+    error_tok(start, "not a function");
+  }
+
+  Type *ty = sc->var->ty->return_ty;
   Node head = {};
   Node *cur = &head;
   while (!equal(tok, ")")) {
@@ -1172,6 +1181,7 @@ Node *funcall(Token **rest, Token *tok) {
       tok = tok->next;  // skip ','
     }
     cur = cur->next = assign(&tok, tok);
+    add_type(cur);
   }
   assert(equal(tok, ")"));
   tok = tok->next;  // skip ')'
@@ -1179,6 +1189,7 @@ Node *funcall(Token **rest, Token *tok) {
 
   Node *node = new_node(ND_FUNCALL, NULL, NULL);
   node->funcname = strndup(start->loc, start->len);
+  node->ty = ty;
   node->args = head.next;
   return node;
 }
