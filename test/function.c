@@ -20,6 +20,8 @@ int g1;
 int *g1_ptr() { return &g1; }
 char int_to_char(int x) { return x; }
 
+int div_long(long x, long y) { return x / y; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -38,6 +40,8 @@ int main() {
 
   ASSERT(3, *g1_ptr());
   ASSERT(5, int_to_char(261));
+  ASSERT(5, int_to_char(261));
+  ASSERT(-5, div_long(-10, 2));
 
   return 0;
 }
