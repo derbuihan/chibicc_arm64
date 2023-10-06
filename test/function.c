@@ -15,12 +15,12 @@ int fib(int x) {
   if (x <= 1) return 1;
   return fib(x - 1) + fib(x - 2);
 }
-
 int g1;
 int *g1_ptr() { return &g1; }
 char int_to_char(int x) { return x; }
-
 int div_long(long x, long y) { return x / y; }
+_Bool bool_fn_add(_Bool x) { return x + 1; }
+_Bool bool_fn_sub(_Bool x) { return x - 1; }
 
 int main() {
   ASSERT(11, ret11());
@@ -42,6 +42,13 @@ int main() {
   ASSERT(5, int_to_char(261));
   ASSERT(5, int_to_char(261));
   ASSERT(-5, div_long(-10, 2));
+
+  ASSERT(1, bool_fn_add(3));
+  ASSERT(0, bool_fn_sub(3));
+  ASSERT(1, bool_fn_add(-3));
+  ASSERT(0, bool_fn_sub(-3));
+  ASSERT(1, bool_fn_add(0));
+  ASSERT(1, bool_fn_sub(0));
 
   return 0;
 }

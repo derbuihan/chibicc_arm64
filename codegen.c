@@ -94,6 +94,14 @@ static void gen_addr(Node *node) {
   }
 }
 
+static void cmp_zero(Type *ty) {
+  if (is_integer(ty) && ty->size <= 4) {
+    println("    cmp w0, #0");
+  } else {
+    println("    cmp x0, #0");
+  }
+}
+
 static enum { I8, I16, I32, I64 };
 
 static int getTypeId(Type *ty) {
@@ -122,6 +130,10 @@ static char *cast_table[][4] = {
 static void cast(Type *from, Type *to) {
   if (to->kind == TY_VOID) {
     return;
+  }
+  if (to->kind == TY_BOOL) {
+    cmp_zero(from);
+    println("    cset w0, NE");
   }
   int t1 = getTypeId(from);
   int t2 = getTypeId(to);
