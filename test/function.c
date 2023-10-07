@@ -21,6 +21,7 @@ char int_to_char(int x) { return x; }
 int div_long(long x, long y) { return x / y; }
 _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
+static int static_fn() { return 3; }
 
 int main() {
   ASSERT(11, ret11());
@@ -49,6 +50,8 @@ int main() {
   ASSERT(0, bool_fn_sub(-3));
   ASSERT(1, bool_fn_add(0));
   ASSERT(1, bool_fn_sub(0));
+
+  ASSERT(3, static_fn());
 
   return 0;
 }

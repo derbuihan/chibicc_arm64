@@ -380,7 +380,9 @@ static void emit_text(Obj *prog) {
       continue;
     }
     println("    .text");
-    println("    .globl _%s", fn->name);
+    if (!fn->is_static) {
+      println("    .globl _%s", fn->name);
+    }
     println("    .p2align 2");
     println("_%s:", fn->name);
     current_fn = fn;

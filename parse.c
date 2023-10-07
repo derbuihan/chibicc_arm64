@@ -26,6 +26,7 @@ struct Scope {
 
 typedef struct {
   bool is_typedef;
+  bool is_static;
 } VarAttr;
 
 static Obj *locals;
@@ -40,7 +41,7 @@ static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
 
-static Token *function(Token *tok, Type *basety);
+static Token *function(Token *tok, Type *basety, VarAttr *attr);
 
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
 
@@ -301,8 +302,8 @@ static Type *find_typedef(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  char *kw[] = {"void", "_Bool",  "char",  "short",   "int",
-                "long", "struct", "union", "typedef", "enum"};
+  char *kw[] = {"void",   "_Bool", "char",    "short", "int",   "long",
+                "struct", "union", "typedef", "enum",  "static"};
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
       return true;
@@ -316,7 +317,7 @@ static bool is_typename(Token *tok) {
 // global-variable = declarator ("," declarator)* ";"
 // function = declarator (";" | "{" compound-stmt)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | typedef-name
+//            | "typedef" | "static" | typedef-name
 //            | "struct" struct-decl | "union" union-decl
 //            | "enum" enum-specifier)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
@@ -402,11 +403,12 @@ Token *global_variable(Token *tok, Type *basety) {
 }
 
 // function = declarator (";" | "{" compound-stmt)
-Token *function(Token *tok, Type *basety) {
+Token *function(Token *tok, Type *basety, VarAttr *attr) {
   Type *ty = declarator(&tok, tok, basety);
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
   fn->is_definition = true;
+  fn->is_static = attr->is_static;
 
   if (equal(tok, ";")) {
     tok = tok->next;  // skip ";"
@@ -428,7 +430,7 @@ Token *function(Token *tok, Type *basety) {
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | typedef-name
+//            | "typedef" | "static" | typedef-name
 //            | "struct" struct-decl | "union" union-decl
 //            | "enum" enum-specifier)+
 Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
@@ -445,12 +447,19 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   int counter = 0;
 
   while (is_typename(tok)) {
-    if (equal(tok, "typedef")) {
+    if (equal(tok, "typedef") || equal(tok, "static")) {
       if (!attr) {
         error_tok(tok,
                   "storage class specifier is not allowed in this context");
       }
-      attr->is_typedef = true;
+      if (equal(tok, "typedef")) {
+        attr->is_typedef = true;
+      } else {
+        attr->is_static = true;
+      }
+      if (attr->is_typedef && attr->is_static) {
+        error_tok(tok, "typedef and static may not be used together");
+      }
       tok = tok->next;
       continue;
     }
@@ -1322,7 +1331,7 @@ Obj *parse(Token *tok) {
     }
 
     // function
-    tok = function(tok, basety);
+    tok = function(tok, basety, &attr);
   }
   return globals;
 }
