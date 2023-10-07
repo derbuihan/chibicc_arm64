@@ -6,6 +6,8 @@ struct VarScope {
   char *name;
   Obj *var;
   Type *type_def;
+  Type *enum_ty;
+  int enum_val;
 };
 
 typedef struct TagScope TagScope;
@@ -55,6 +57,8 @@ static Type *union_decl(Token **rest, Token *tok);
 static Type *struct_union_decl(Token **rest, Token *tok);
 
 static void struct_members(Token **rest, Token *tok, Type *ty);
+
+static Type *enum_specifier(Token **rest, Token *tok);
 
 static Node *declaration(Token **rest, Token *tok, Type *basety);
 
@@ -297,8 +301,8 @@ static Type *find_typedef(Token *tok) {
 }
 
 static bool is_typename(Token *tok) {
-  char *kw[] = {"void", "_Bool",  "char",  "short",  "int",
-                "long", "struct", "union", "typedef"};
+  char *kw[] = {"void", "_Bool",  "char",  "short",   "int",
+                "long", "struct", "union", "typedef", "enum"};
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
       return true;
@@ -313,7 +317,8 @@ static bool is_typename(Token *tok) {
 // function = declarator (";" | "{" compound-stmt)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //            | "typedef" | typedef-name
-//            | "struct" struct-decl | "union" union-decl)+
+//            | "struct" struct-decl | "union" union-decl
+//            | "enum" enum-specifier)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 // type-suffix = "(" func-params
 //             | "[" num "]" type-suffix
@@ -325,6 +330,9 @@ static bool is_typename(Token *tok) {
 // union-decl = struct-union-decl
 // struct-union-decl = ident? ( "{" struct-members )?
 // struct-members = (declspec declarator ("," declarator)* ";")* "}"
+// enum-specifier = ident? "{" enum-list? "}"
+//                | ident ("{" enum-list? "}")?
+// enum-list = ident ("=" num)? ("," ident ("=" num)?)*
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
 // declaration = (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
@@ -421,7 +429,8 @@ Token *function(Token *tok, Type *basety) {
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //            | "typedef" | typedef-name
-//            | "struct" struct-decl | "union" union-decl)+
+//            | "struct" struct-decl | "union" union-decl
+//            | "enum" enum-specifier)+
 Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   enum {
     VOID = 1 << 0,
@@ -447,7 +456,8 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
     }
 
     Type *ty2 = find_typedef(tok);
-    if (equal(tok, "struct") || equal(tok, "union") || ty2) {
+    if (equal(tok, "struct") || equal(tok, "union") || equal(tok, "enum") ||
+        ty2) {
       if (counter) {
         break;
       }
@@ -455,6 +465,8 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
         ty = struct_decl(&tok, tok->next);
       } else if (equal(tok, "union")) {
         ty = union_decl(&tok, tok->next);
+      } else if (equal(tok, "enum")) {
+        ty = enum_specifier(&tok, tok->next);
       } else {
         ty = ty2;
         tok = tok->next;
@@ -677,6 +689,62 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
   assert(equal(tok, "}"));
   *rest = tok->next;  // skip "}"
   ty->members = head.next;
+}
+
+// enum-specifier = ident? "{" enum-list? "}"
+//                | ident ("{" enum-list? "}")?
+// enum-list = ident ("=" num)? ("," ident ("=" num)?)*
+static Type *enum_specifier(Token **rest, Token *tok) {
+  Type *ty = enum_type();
+
+  Token *tag = NULL;
+  if (tok->kind == TK_IDENT) {
+    tag = tok;
+    tok = tok->next;
+  }
+
+  if (tag && !equal(tok, "{")) {
+    Type *ty = find_tag(tag);
+    if (!ty) {
+      error_tok(tag, "unknown enum type");
+    }
+    if (ty->kind != TY_ENUM) {
+      error_tok(tag, "not an enum tag");
+    }
+    *rest = tok;
+    return ty;
+  }
+
+  assert(equal(tok, "{"));
+  tok = tok->next;  // skip "{"
+
+  int i = 0;
+  int val = 0;
+  while (!equal(tok, "}")) {
+    if (i++ > 0) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ","
+    }
+
+    char *name = get_ident(tok);
+    tok = tok->next;  // skip ident
+
+    if (equal(tok, "=")) {
+      tok = tok->next;  // skip "="
+      assert(tok->kind == TK_NUM);
+      val = tok->val;
+      tok = tok->next;  // skip num
+    }
+
+    VarScope *sc = push_scope(name);
+    sc->enum_ty = ty;
+    sc->enum_val = val++;
+  }
+  *rest = tok->next;  // skip "}"
+  if (tag) {
+    push_tag_scope(tag, ty);
+  }
+  return ty;
 }
 
 // declaration = (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
@@ -1159,12 +1227,18 @@ Node *ident(Token **rest, Token *tok) {
   // find var in locals
   VarScope *sc = find_var(tok);
 
-  if (!sc || !sc->var) {
+  if (!sc || (!sc->var && !sc->enum_ty)) {
     error_tok(tok, "undefined variable");
   }
 
-  Node *node = new_node(ND_VAR, NULL, NULL);
-  node->var = sc->var;
+  Node *node;
+  if (sc->var) {
+    node = new_node(ND_VAR, NULL, NULL);
+    node->var = sc->var;
+  } else {
+    node = new_node(ND_NUM, NULL, NULL);
+    node->val = sc->enum_val;
+  }
 
   *rest = tok->next;
   return node;
