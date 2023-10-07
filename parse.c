@@ -867,7 +867,15 @@ Node *stmt(Token **rest, Token *tok) {
     tok = tok->next;  // skip "for"
 
     assert(equal(tok, "("));
-    node->init = expr_stmt(&tok, tok->next);
+    tok = tok->next;  // skip "("
+    enter_scope();
+
+    if (is_typename(tok)) {
+      Type *basety = declspec(&tok, tok, NULL);
+      node->init = declaration(&tok, tok, basety);
+    } else {
+      node->init = expr_stmt(&tok, tok);
+    }
 
     if (!equal(tok, ";")) {
       node->cond = expr(&tok, tok);
@@ -881,6 +889,7 @@ Node *stmt(Token **rest, Token *tok) {
     assert(equal(tok, ")"));
 
     node->then = stmt(&tok, tok->next);
+    leave_scope();
 
     *rest = tok;
     return node;
