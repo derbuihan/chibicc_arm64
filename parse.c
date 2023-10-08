@@ -260,6 +260,24 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   error_tok(tok, "invalid operands");
 }
 
+// Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
+// where tmp is a fresh pointer variable.
+static Node *to_assign(Node *binary) {
+  add_type(binary->lhs);
+  add_type(binary->rhs);
+  Token *tok = binary->tok;
+
+  Node *tmp = new_node(ND_VAR, NULL, NULL);
+  tmp->var = new_lvar("", pointer_to(binary->lhs->ty));
+
+  Node *expr1 = new_node(ND_ASSIGN, tmp, new_node(ND_ADDR, binary->lhs, NULL));
+  Node *expr2 = new_node(
+      ND_ASSIGN, new_node(ND_DEREF, tmp, NULL),
+      new_node(binary->kind, new_node(ND_DEREF, tmp, NULL), binary->rhs));
+
+  return new_node(ND_COMMA, expr1, expr2);
+}
+
 static Member *get_struct_member(Type *ty, Token *tok) {
   for (Member *mem = ty->members; mem; mem = mem->next) {
     if (mem->name->len == tok->len &&
@@ -346,7 +364,8 @@ static bool is_typename(Token *tok) {
 //      | expr-stmt
 // expr-stmt = expr? ";"
 // expr = assign ("," expr)?
-// assign = equality ("=" assign)?
+// assign = equality (assign-op assign)?
+// assign-op = "=" | "+=" | "-=" | "*=" | "/="
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
@@ -945,12 +964,29 @@ Node *expr(Token **rest, Token *tok) {
   return node;
 }
 
-// assign = equality ("=" assign)?
+// assign = equality (assign-op assign)?
+// assign-op = "=" | "+=" | "-=" | "*=" | "/="
 Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
 
   if (equal(tok, "=")) {
     node = new_node(ND_ASSIGN, node, assign(&tok, tok->next));
+  }
+
+  if (equal(tok, "+=")) {
+    node = to_assign(new_add(node, assign(&tok, tok->next), tok));
+  }
+
+  if (equal(tok, "-=")) {
+    node = to_assign(new_sub(node, assign(&tok, tok->next), tok));
+  }
+
+  if (equal(tok, "*=")) {
+    node = to_assign(new_node(ND_MUL, node, assign(&tok, tok->next)));
+  }
+
+  if (equal(tok, "/=")) {
+    node = to_assign(new_node(ND_DIV, node, assign(&tok, tok->next)));
   }
 
   *rest = tok;
