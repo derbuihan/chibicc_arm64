@@ -1099,7 +1099,9 @@ Node *cast(Token **rest, Token *tok) {
   return unary(rest, tok);
 }
 
-// unary = ("+" | "-" | "&" | "*") cast | postfix
+// unary = ("+" | "-" | "&" | "*")? cast
+//       | ("++" | "--") unary
+//       | postfix
 Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "+")) {
     Node *node = cast(&tok, tok->next);
@@ -1121,6 +1123,22 @@ Node *unary(Token **rest, Token *tok) {
 
   if (equal(tok, "*")) {
     Node *node = new_node(ND_DEREF, cast(&tok, tok->next), NULL);
+    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "++")) {
+    Node *one = new_node(ND_NUM, NULL, NULL);
+    one->val = 1;
+    Node *node = to_assign(new_add(unary(&tok, tok->next), one, tok));
+    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "--")) {
+    Node *one = new_node(ND_NUM, NULL, NULL);
+    one->val = 1;
+    Node *node = to_assign(new_sub(unary(&tok, tok->next), one, tok));
     *rest = tok;
     return node;
   }
