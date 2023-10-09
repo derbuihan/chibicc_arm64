@@ -134,6 +134,8 @@ struct Node {
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs);
 
+Node *new_cast(Node *expr, Type *ty);
+
 Obj *parse(Token *tok);
 
 // type

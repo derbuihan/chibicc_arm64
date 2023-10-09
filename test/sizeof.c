@@ -39,6 +39,10 @@ int main() {
            char i;
            sizeof(++i);
          }));
+  ASSERT(1, ({
+           char i;
+           sizeof(i++);
+         }));
 
   return 0;
 }

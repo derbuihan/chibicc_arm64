@@ -61,10 +61,8 @@ static Type *get_common_type(Type *ty1, Type *ty2) {
 
 static void usual_arith_conv(Node **lhs, Node **rhs) {
   Type *ty = get_common_type((*lhs)->ty, (*rhs)->ty);
-  *lhs = new_node(ND_CAST, *lhs, NULL);
-  (*lhs)->ty = ty;
-  *rhs = new_node(ND_CAST, *rhs, NULL);
-  (*rhs)->ty = ty;
+  *lhs = new_cast(*lhs, ty);
+  *rhs = new_cast(*rhs, ty);
 }
 
 void add_type(Node *node) {
@@ -100,8 +98,7 @@ void add_type(Node *node) {
       return;
     case ND_NEG: {
       Type *ty = get_common_type(ty_int, node->lhs->ty);
-      node->lhs = new_node(ND_CAST, node->lhs, NULL);
-      node->lhs->ty = ty;
+      node->lhs = new_cast(node->lhs, ty);
       node->ty = ty;
       return;
     }
@@ -110,8 +107,7 @@ void add_type(Node *node) {
         error_tok(node->lhs->tok, "not an lvalue");
       }
       if (node->lhs->ty->kind != TY_STRUCT) {
-        node->rhs = new_node(ND_CAST, node->rhs, NULL);
-        node->rhs->ty = node->lhs->ty;
+        node->rhs = new_cast(node->rhs, node->lhs->ty);
       }
       node->ty = node->lhs->ty;
       return;

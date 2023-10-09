@@ -278,6 +278,24 @@ static Node *to_assign(Node *binary) {
   return new_node(ND_COMMA, expr1, expr2);
 }
 
+Node *new_cast(Node *expr, Type *ty) {
+  add_type(expr);
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = ND_CAST;
+  node->tok = expr->tok;
+  node->lhs = expr;
+  node->ty = copy_type(ty);
+  return node;
+}
+
+static Node *new_inc_dec(Node *node, Token *tok, int addend) {
+  add_type(node);
+  Node *num = new_node(ND_NUM, NULL, NULL);
+  num->val = addend;
+  return new_cast(new_sub(to_assign(new_add(node, num, tok)), num, tok),
+                  node->ty);
+}
+
 static Member *get_struct_member(Type *ty, Token *tok) {
   for (Member *mem = ty->members; mem; mem = mem->next) {
     if (mem->name->len == tok->len &&
@@ -372,7 +390,7 @@ static bool is_typename(Token *tok) {
 // mul = cast ("*" cast | "/" cast)*
 // cast = "(" type-name ")" cast | unary
 // unary = ("+" | "-" | "&" | "*") cast | postfix
-// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
+// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" "(" type-name ")"
@@ -858,8 +876,7 @@ Node *stmt(Token **rest, Token *tok) {
     *rest = tok->next;  // skip ";"
 
     add_type(exp);
-    node->lhs = new_node(ND_CAST, exp, NULL);
-    node->lhs->ty = current_fn->ty->return_ty;
+    node->lhs = new_cast(exp, current_fn->ty->return_ty);
     return node;
   }
 
@@ -1090,9 +1107,7 @@ Node *cast(Token **rest, Token *tok) {
 
     Node *lhs = cast(rest, tok);
     add_type(lhs);
-    Node *node = new_node(ND_CAST, lhs, NULL);
-    node->tok = lhs->tok;
-    node->ty = copy_type(ty);
+    Node *node = new_cast(lhs, ty);
 
     return node;
   }
@@ -1148,7 +1163,7 @@ Node *unary(Token **rest, Token *tok) {
   return node;
 }
 
-// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
+// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 Node *postfix(Token **rest, Token *tok) {
   Node *node = primary(&tok, tok);
 
@@ -1180,6 +1195,20 @@ Node *postfix(Token **rest, Token *tok) {
       tok = tok->next;  // skip "->"
       assert(tok->kind == TK_IDENT);
       tok = tok->next;  // skip ident
+      continue;
+    }
+
+    if (equal(tok, "++")) {
+      node = new_inc_dec(node, tok, 1);
+      assert(equal(tok, "++"));
+      tok = tok->next;  // skip "++"
+      continue;
+    }
+
+    if (equal(tok, "--")) {
+      node = new_inc_dec(node, tok, -1);
+      assert(equal(tok, "--"));
+      tok = tok->next;  // skip "--"
       continue;
     }
 
@@ -1347,8 +1376,7 @@ Node *funcall(Token **rest, Token *tok) {
       if (param_ty->kind == TY_STRUCT || param_ty->kind == TY_UNION) {
         error_tok(arg->tok, "passing a struct is not supported yet");
       }
-      arg = new_node(ND_CAST, arg, NULL);
-      arg->ty = param_ty;
+      arg = new_cast(arg, param_ty);
       param_ty = param_ty->next;
     }
     cur = cur->next = arg;
