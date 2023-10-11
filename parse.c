@@ -389,7 +389,7 @@ static bool is_typename(Token *tok) {
 // add = mul ("+" mul | "-" mul)*
 // mul = cast ("*" cast | "/" cast)*
 // cast = "(" type-name ")" cast | unary
-// unary = ("+" | "-" | "&" | "*" | "!")? cast
+// unary = ("+" | "-" | "&" | "*" | "!" | "~")? cast
 //       | ("++" | "--") unary
 //       | postfix
 // postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
@@ -1116,7 +1116,7 @@ Node *cast(Token **rest, Token *tok) {
   return unary(rest, tok);
 }
 
-// unary = ("+" | "-" | "&" | "*" | "!")? cast
+// unary = ("+" | "-" | "&" | "*" | "!" | "~")? cast
 //       | ("++" | "--") unary
 //       | postfix
 Node *unary(Token **rest, Token *tok) {
@@ -1162,6 +1162,12 @@ Node *unary(Token **rest, Token *tok) {
     Node *one = new_node(ND_NUM, NULL, NULL);
     one->val = 1;
     Node *node = to_assign(new_sub(unary(&tok, tok->next), one, tok));
+    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "~")) {
+    Node *node = new_node(ND_BITNOT, cast(&tok, tok->next), NULL);
     *rest = tok;
     return node;
   }

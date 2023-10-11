@@ -206,6 +206,10 @@ void gen_expr(Node *node) {
       println("    cmp x0, 0");
       println("    cset x0, EQ");
       return;
+    case ND_BITNOT:
+      gen_expr(node->lhs);
+      println("    mvn x0, x0");
+      return;
     case ND_FUNCALL: {
       int nargs = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
