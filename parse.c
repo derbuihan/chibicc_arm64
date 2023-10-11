@@ -383,11 +383,11 @@ static bool is_typename(Token *tok) {
 // expr-stmt = expr? ";"
 // expr = assign ("," expr)?
 // assign = equality (assign-op assign)?
-// assign-op = "=" | "+=" | "-=" | "*=" | "/="
+// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
-// mul = cast ("*" cast | "/" cast)*
+// mul = cast ("*" cast | "/" cast | "%" cast)*
 // cast = "(" type-name ")" cast | unary
 // unary = ("+" | "-" | "&" | "*" | "!" | "~")? cast
 //       | ("++" | "--") unary
@@ -984,7 +984,7 @@ Node *expr(Token **rest, Token *tok) {
 }
 
 // assign = equality (assign-op assign)?
-// assign-op = "=" | "+=" | "-=" | "*=" | "/="
+// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
 Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
 
@@ -1006,6 +1006,10 @@ Node *assign(Token **rest, Token *tok) {
 
   if (equal(tok, "/=")) {
     node = to_assign(new_node(ND_DIV, node, assign(&tok, tok->next)));
+  }
+
+  if (equal(tok, "%=")) {
+    node = to_assign(new_node(ND_MOD, node, assign(&tok, tok->next)));
   }
 
   *rest = tok;
@@ -1080,7 +1084,7 @@ Node *add(Token **rest, Token *tok) {
   }
 }
 
-// mul = cast ("*" cast | "/" cast)*
+// mul = cast ("*" cast | "/" cast | "%" cast)*
 Node *mul(Token **rest, Token *tok) {
   Node *node = cast(&tok, tok);
 
@@ -1091,6 +1095,11 @@ Node *mul(Token **rest, Token *tok) {
     }
     if (equal(tok, "/")) {
       node = new_node(ND_DIV, node, cast(&tok, tok->next));
+      continue;
+    }
+
+    if (equal(tok, "%")) {
+      node = new_node(ND_MOD, node, cast(&tok, tok->next));
       continue;
     }
 

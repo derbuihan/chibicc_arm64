@@ -232,13 +232,15 @@ void gen_expr(Node *node) {
   gen_expr(node->lhs);
   pop("x1");
 
-  char *r0, *r1;
+  char *r0, *r1, *r9;
   if (node->lhs->ty->kind == TY_LONG || node->lhs->ty->base) {
     r0 = "x0";
     r1 = "x1";
+    r9 = "x9";
   } else {
     r0 = "w0";
     r1 = "w1";
+    r9 = "w9";
   }
 
   switch (node->kind) {
@@ -253,6 +255,10 @@ void gen_expr(Node *node) {
       return;
     case ND_DIV:
       println("    sdiv %s, %s, %s", r0, r0, r1);
+      return;
+    case ND_MOD:
+      println("    sdiv %s, %s, %s", r9, r0, r1);
+      println("    msub %s, %s, %s, %s", r0, r9, r1, r0);
       return;
     case ND_EQ:
     case ND_NE:
