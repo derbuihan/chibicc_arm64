@@ -246,5 +246,21 @@ int main() {
   ASSERT(0, 0b1111 ^ 0b1111);
   ASSERT(0b110100, 0b111000 ^ 0b001100);
 
+  ASSERT(2, ({
+           int i = 6;
+           i &= 3;
+           i;
+         }));
+  ASSERT(7, ({
+           int i = 6;
+           i |= 3;
+           i;
+         }));
+  ASSERT(10, ({
+           int i = 15;
+           i ^= 5;
+           i;
+         }));
+
   return 0;
 }

@@ -1021,6 +1021,18 @@ Node *assign(Token **rest, Token *tok) {
     node = to_assign(new_node(ND_MOD, node, assign(&tok, tok->next)));
   }
 
+  if (equal(tok, "&=")) {
+    node = to_assign(new_node(ND_BITAND, node, assign(&tok, tok->next)));
+  }
+
+  if (equal(tok, "|=")) {
+    node = to_assign(new_node(ND_BITOR, node, assign(&tok, tok->next)));
+  }
+
+  if (equal(tok, "^=")) {
+    node = to_assign(new_node(ND_BITXOR, node, assign(&tok, tok->next)));
+  }
+
   *rest = tok;
   return node;
 }
