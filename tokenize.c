@@ -173,8 +173,10 @@ static Token *read_string_literal(char *start) {
 }
 
 static int read_punct(char *p) {
-  static char *kw[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=",
-                       "%=", "++", "--", "<<", ">>", "&&", "||", "&=", "|="};
+  static char *kw[] = {
+      "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "%=",
+      "++", "--", "&=", "|=", "^=", "<<", ">>", "&&", "||",
+  };
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (memcmp(p, kw[i], strlen(kw[i])) == 0) {
       return strlen(kw[i]);

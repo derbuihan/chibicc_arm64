@@ -234,5 +234,17 @@ int main() {
            i;
          }));
 
+  ASSERT(0, 0 & 1);
+  ASSERT(1, 3 & 1);
+  ASSERT(3, 7 & 3);
+  ASSERT(10, -1 & 10);
+
+  ASSERT(1, 0 | 1);
+  ASSERT(0b10011, 0b10000 | 0b00011);
+
+  ASSERT(0, 0 ^ 0);
+  ASSERT(0, 0b1111 ^ 0b1111);
+  ASSERT(0b110100, 0b111000 ^ 0b001100);
+
   return 0;
 }

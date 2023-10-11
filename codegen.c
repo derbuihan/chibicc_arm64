@@ -260,6 +260,15 @@ void gen_expr(Node *node) {
       println("    sdiv %s, %s, %s", r9, r0, r1);
       println("    msub %s, %s, %s, %s", r0, r9, r1, r0);
       return;
+    case ND_BITAND:
+      println("    and %s, %s, %s", r0, r0, r1);
+      return;
+    case ND_BITOR:
+      println("    orr %s, %s, %s", r0, r0, r1);
+      return;
+    case ND_BITXOR:
+      println("    eor %s, %s, %s", r0, r0, r1);
+      return;
     case ND_EQ:
     case ND_NE:
     case ND_LT:
