@@ -360,6 +360,13 @@ void gen_stmt(Node *node) {
       }
       return;
     }
+    case ND_GOTO:
+      println("    b .L.label.%s", node->unique_label);
+      return;
+    case ND_LABEL:
+      println(".L.label.%s:", node->unique_label);
+      gen_stmt(node->lhs);
+      return;
     case ND_RETURN: {
       gen_expr(node->lhs);
       println("    b .L.return.%s", current_fn->name);

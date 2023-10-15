@@ -37,6 +37,10 @@ static Scope *scope = &(Scope){};
 
 static Obj *current_fn;
 
+static Node *gotos;
+
+static Node *labels;
+
 static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
@@ -127,6 +131,21 @@ static void enter_scope(void) {
 }
 
 static void leave_scope(void) { scope = scope->next; }
+
+static void resolve_goto_labels(void) {
+  for (Node *x = gotos; x; x = x->goto_next) {
+    for (Node *y = labels; y; y = y->goto_next) {
+      if (!strcmp(x->label, y->label)) {
+        x->unique_label = y->unique_label;
+        break;
+      }
+    }
+    if (x->unique_label == NULL) {
+      error_tok(x->tok->next, "use of undeclared label");
+    }
+  }
+  gotos = labels = NULL;
+}
 
 static VarScope *find_var(Token *tok) {
   for (Scope *sc = scope; sc; sc = sc->next) {
@@ -392,6 +411,8 @@ static bool is_typename(Token *tok) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "goto" ident ";"
+//      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
 // expr-stmt = expr? ";"
@@ -484,6 +505,7 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
   fn->body = compound_stmt(&tok, tok->next);
   fn->locals = locals;
   leave_scope();
+  resolve_goto_labels();
   return tok;
 }
 
@@ -919,6 +941,8 @@ Node *compound_stmt(Token **rest, Token *tok) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "goto" ident ";"
+//      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
 Node *stmt(Token **rest, Token *tok) {
@@ -995,6 +1019,29 @@ Node *stmt(Token **rest, Token *tok) {
     node->then = stmt(&tok, tok->next);
 
     *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "goto")) {
+    Node *node = new_node(ND_GOTO, NULL, NULL, tok);
+    tok = tok->next;  // skip "goto"
+    node->label = get_ident(tok);
+    node->goto_next = gotos;
+    gotos = node;
+    tok = tok->next;  // skip label
+    assert(equal(tok, ";"));
+    *rest = tok->next;  // skip ";"
+    return node;
+  }
+
+  if (tok->kind == TK_IDENT && equal(tok->next, ":")) {
+    Node *node = new_node(ND_LABEL, NULL, NULL, tok);
+    node->label = strndup(tok->loc, tok->len);
+    node->unique_label = new_unique_name();
+    node->lhs = stmt(&tok, tok->next->next);
+    *rest = tok;
+    node->goto_next = labels;
+    labels = node;
     return node;
   }
 
