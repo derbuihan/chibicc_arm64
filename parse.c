@@ -51,6 +51,8 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty);
 
 static Type *func_params(Token **rest, Token *tok, Type *ty);
 
+static Type *array_dimensions(Token **rest, Token *tok, Type *ty);
+
 static Type *struct_decl(Token **rest, Token *tok);
 
 static Type *union_decl(Token **rest, Token *tok);
@@ -369,10 +371,11 @@ static bool is_typename(Token *tok) {
 //            | "enum" enum-specifier)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 // type-suffix = "(" func-params
-//             | "[" num "]" type-suffix
+//             | "[" array-dimensions
 //             | ε
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
+// array-dimensions = num? "]" type-suffix
 // struct-decl = ident? "{" struct-members
 // struct-decl = struct-union-decl
 // union-decl = struct-union-decl
@@ -615,7 +618,7 @@ Type *declarator(Token **rest, Token *tok, Type *ty) {
 }
 
 // type-suffix = "(" func-params
-//             | "[" num "]" type-suffix
+//             | "[" array-dimensions
 //             | ε
 Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   if (equal(tok, "(")) {
@@ -623,14 +626,7 @@ Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   }
 
   if (equal(tok, "[")) {
-    tok = tok->next;  // skip "["
-    assert(tok->kind == TK_NUM);
-    int sz = tok->val;
-    tok = tok->next;  // skip num
-    assert(equal(tok, "]"));
-    *rest = tok = tok->next;  // skip "]"
-    ty = type_suffix(rest, tok, ty);
-    return array_of(ty, sz);
+    return array_dimensions(rest, tok->next, ty);
   }
 
   *rest = tok;
@@ -657,6 +653,21 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   ty->params = head.next;
   *rest = tok->next;  // skip ")"
   return ty;
+}
+
+// array-dimensions = num? "]" type-suffix
+static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
+  if (equal(tok, "]")) {
+    ty = type_suffix(rest, tok->next, ty);
+    return array_of(ty, -1);
+  }
+  assert(tok->kind == TK_NUM);
+  int sz = tok->val;
+  tok = tok->next;  // skip num
+  assert(equal(tok, "]"));
+  *rest = tok = tok->next;  // skip "]"
+  ty = type_suffix(rest, tok, ty);
+  return array_of(ty, sz);
 }
 
 // struct-decl = struct-union-decl
@@ -823,6 +834,9 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
       *rest = tok = tok->next;  // skip ','
     }
     Type *ty = declarator(&tok, tok, basety);
+    if (ty->size < 0) {
+      error_tok(tok, "variable has incomplete type");
+    }
     if (ty->kind == TY_VOID) {
       error_tok(ty->name, "variable declared void");
     }
