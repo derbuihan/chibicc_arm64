@@ -303,6 +303,16 @@ int main() {
          foo:;
            1;
          }));
+  ASSERT(2, ({
+           struct x {
+             int x;
+           } x;
+           x.x = 0;
+           goto x;
+         x:
+           x.x += 2;
+           x.x;
+         }));
 
   return 0;
 }
