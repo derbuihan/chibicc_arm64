@@ -139,7 +139,7 @@ struct Node {
   int64_t val;  // Value. Used if kind is ND_NUM.
 };
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs);
+Node *new_node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);
 
 Node *new_cast(Node *expr, Type *ty);
 
