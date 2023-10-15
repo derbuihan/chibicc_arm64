@@ -71,6 +71,7 @@ int align_to(int n, int align) { return (n + align - 1) / align * align; }
 static void gen_addr(Node *node) {
   switch (node->kind) {
     case ND_VAR:
+      println("; gen_addr: ND_VAR");
       if (node->var->is_local) {
         // Local variable
         println("    add x0, x29, %d", node->var->offset);
@@ -81,13 +82,16 @@ static void gen_addr(Node *node) {
       }
       return;
     case ND_DEREF:
+      println("; gen_addr: ND_DEREF");
       gen_expr(node->lhs);
       return;
     case ND_COMMA:
+      println("; gen_addr: ND_COMMA");
       gen_expr(node->lhs);
       gen_addr(node->rhs);
       return;
     case ND_MEMBER:
+      println("; gen_addr: ND_MEMBER");
       gen_addr(node->lhs);
       println("    add x0, x0, %d", node->member->offset);
       return;
@@ -145,6 +149,7 @@ static void cast(Type *from, Type *to) {
 void gen_expr(Node *node) {
   switch (node->kind) {
     case ND_NUM:
+      println("; gen_expr: ND_NUM");
       if (node->val > 281474976710655) {
         println("    mov x0, %d", node->val & 0xFFFF);
         println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
@@ -167,50 +172,61 @@ void gen_expr(Node *node) {
       println("    mov x0, %d", node->val);
       return;
     case ND_NEG:
+      println("; gen_expr: ND_NEG");
       gen_expr(node->lhs);
       println("    neg x0, x0");
       return;
     case ND_VAR:
     case ND_MEMBER:
+      println("; gen_expr: ND_VAR, ND_MEMBER");
       gen_addr(node);
       load(node->ty);
       return;
     case ND_DEREF:
+      println("; gen_expr: ND_DEREF");
       gen_expr(node->lhs);
       load(node->ty);
       return;
     case ND_ADDR:
+      println("; gen_expr: ND_ADDR");
       gen_addr(node->lhs);
       return;
     case ND_ASSIGN:
+      println("; gen_expr: ND_ASSIGN");
       gen_addr(node->lhs);
       push();
       gen_expr(node->rhs);
       store(node->ty);
       return;
     case ND_STMT_EXPR:
+      println("; gen_expr: ND_STMT_EXPR");
       for (Node *n = node->body; n; n = n->next) {
         gen_stmt(n);
       }
       return;
     case ND_COMMA:
+      println("; gen_expr: ND_COMMA");
       gen_expr(node->lhs);
       gen_expr(node->rhs);
       return;
     case ND_CAST:
+      println("; gen_expr: ND_CAST");
       gen_expr(node->lhs);
       cast(node->lhs->ty, node->ty);
       return;
     case ND_NOT:
+      println("; gen_expr: ND_NOT");
       gen_expr(node->lhs);
       println("    cmp x0, 0");
       println("    cset x0, EQ");
       return;
     case ND_BITNOT:
+      println("; gen_expr: ND_BITNOT");
       gen_expr(node->lhs);
       println("    mvn x0, x0");
       return;
     case ND_LOGAND: {
+      println("; gen_expr: ND_LOGAND");
       int c = count++;
       gen_expr(node->lhs);
       println("    cmp x0, 0");
@@ -226,6 +242,7 @@ void gen_expr(Node *node) {
       return;
     }
     case ND_LOGOR: {
+      println("; gen_expr: ND_LOGOR");
       int c = count++;
       gen_expr(node->lhs);
       println("    cmp x0, 0");
@@ -241,6 +258,7 @@ void gen_expr(Node *node) {
       return;
     }
     case ND_FUNCALL: {
+      println("; gen_expr: ND_FUNCALL");
       int nargs = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
         gen_expr(arg);
@@ -275,34 +293,43 @@ void gen_expr(Node *node) {
 
   switch (node->kind) {
     case ND_ADD:
+      println("; gen_expr: ND_ADD");
       println("    add %s, %s, %s", r0, r0, r1);
       return;
     case ND_SUB:
+      println("; gen_expr: ND_SUB");
       println("    sub %s, %s, %s", r0, r0, r1);
       return;
     case ND_MUL:
+      println("; gen_expr: ND_MUL");
       println("    mul %s, %s, %s", r0, r0, r1);
       return;
     case ND_DIV:
+      println("; gen_expr: ND_DIV");
       println("    sdiv %s, %s, %s", r0, r0, r1);
       return;
     case ND_MOD:
+      println("; gen_expr: ND_MOD");
       println("    sdiv %s, %s, %s", r9, r0, r1);
       println("    msub %s, %s, %s, %s", r0, r9, r1, r0);
       return;
     case ND_BITAND:
+      println("; gen_expr: ND_BITAND");
       println("    and %s, %s, %s", r0, r0, r1);
       return;
     case ND_BITOR:
+      println("; gen_expr: ND_BITOR");
       println("    orr %s, %s, %s", r0, r0, r1);
       return;
     case ND_BITXOR:
+      println("; gen_expr: ND_BITXOR");
       println("    eor %s, %s, %s", r0, r0, r1);
       return;
     case ND_EQ:
     case ND_NE:
     case ND_LT:
     case ND_LE:
+      println("; gen_expr: ND_EQ, ND_NE, ND_LT, ND_LE");
       println("    cmp %s, %s", r0, r1);
       if (node->kind == ND_EQ) {
         println("    cset %s, EQ", r0);
@@ -324,6 +351,7 @@ void gen_expr(Node *node) {
 void gen_stmt(Node *node) {
   switch (node->kind) {
     case ND_IF: {
+      println("; gen_stmt: ND_IF");
       int c = count++;
       gen_expr(node->cond);
       println("    cbz x0, .L.else.%d", c);
@@ -337,6 +365,7 @@ void gen_stmt(Node *node) {
       return;
     }
     case ND_FOR: {
+      println("; gen_stmt: ND_FOR");
       int c = count++;
       if (node->init) {
         gen_stmt(node->init);
@@ -355,24 +384,29 @@ void gen_stmt(Node *node) {
       return;
     }
     case ND_BLOCK: {
+      println("; gen_stmt: ND_BLOCK");
       for (Node *n = node->body; n; n = n->next) {
         gen_stmt(n);
       }
       return;
     }
     case ND_GOTO:
+      println("; gen_stmt: ND_GOTO");
       println("    b %s", node->unique_label);
       return;
     case ND_LABEL:
+      println("; gen_stmt: ND_LABEL");
       println("%s:", node->unique_label);
       gen_stmt(node->lhs);
       return;
     case ND_RETURN: {
+      println("; gen_stmt: ND_RETURN");
       gen_expr(node->lhs);
       println("    b .L.return.%s", current_fn->name);
       return;
     }
     case ND_EXPR_STMT: {
+      println("; gen_stmt: ND_EXPR_STMT");
       gen_expr(node->lhs);
       return;
     }
@@ -448,6 +482,7 @@ static void emit_text(Obj *prog) {
     println("_%s:", fn->name);
     current_fn = fn;
 
+    println("; prologue %s", fn->name);
     println("    stp x29, x30, [sp, -16]!");
     println("    mov x29, sp");
     println("    sub sp, sp, %d", fn->stack_size);
@@ -460,6 +495,7 @@ static void emit_text(Obj *prog) {
     gen_stmt(fn->body);
     assert(depth == 0);
 
+    println("; epilogue %s", fn->name);
     println(".L.return.%s:", fn->name);
     println("    mov sp, x29");
     println("    ldp x29, x30, [sp], 16");
