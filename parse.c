@@ -41,6 +41,8 @@ static Node *gotos;
 
 static Node *labels;
 
+static char *brk_label;
+
 static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
@@ -412,6 +414,7 @@ static bool is_typename(Token *tok) {
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
+//      | "break" ";"
 //      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
@@ -942,6 +945,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
+//      | "break" ";"
 //      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
@@ -983,6 +987,9 @@ Node *stmt(Token **rest, Token *tok) {
     tok = tok->next;  // skip "("
     enter_scope();
 
+    char *brk = brk_label;
+    brk_label = node->brk_label = new_unique_name();
+
     if (is_typename(tok)) {
       Type *basety = declspec(&tok, tok, NULL);
       node->init = declaration(&tok, tok, basety);
@@ -1003,22 +1010,23 @@ Node *stmt(Token **rest, Token *tok) {
 
     node->then = stmt(&tok, tok->next);
     leave_scope();
-
     *rest = tok;
+    brk_label = brk;
     return node;
   }
 
   if (equal(tok, "while")) {
     Node *node = new_node(ND_FOR, NULL, NULL, tok);
     tok = tok->next;  // skip "while"
-
     assert(equal(tok, "("));
     node->cond = expr(&tok, tok->next);
-
     assert(equal(tok, ")"));
-    node->then = stmt(&tok, tok->next);
 
+    char *brk = brk_label;
+    brk_label = node->brk_label = new_unique_name();
+    node->then = stmt(&tok, tok->next);
     *rest = tok;
+    brk_label = brk;
     return node;
   }
 
@@ -1031,6 +1039,17 @@ Node *stmt(Token **rest, Token *tok) {
     tok = tok->next;  // skip label
     assert(equal(tok, ";"));
     *rest = tok->next;  // skip ";"
+    return node;
+  }
+
+  if (equal(tok, "break")) {
+    if (!brk_label) {
+      error_tok(tok, "stray break");
+    }
+    Node *node = new_node(ND_GOTO, NULL, NULL, tok);
+    node->unique_label = brk_label;
+    assert(equal(tok->next, ";"));
+    *rest = tok = tok->next;  // skip ";"
     return node;
   }
 

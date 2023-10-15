@@ -128,6 +128,9 @@ struct Node {
   Node *init;
   Node *inc;
 
+  // "break" label
+  char *brk_label;
+
   // Block or statement expression
   Node *body;
 

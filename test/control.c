@@ -314,5 +314,36 @@ int main() {
            x.x;
          }));
 
+  ASSERT(3, ({
+           int i = 0;
+           for (; i < 10; i++) {
+             if (i == 3) break;
+           }
+           i;
+         }));
+  ASSERT(4, ({
+           int i = 0;
+           while (1) {
+             if (i++ == 3) break;
+           }
+           i;
+         }));
+  ASSERT(3, ({
+           int i = 0;
+           for (; i < 10; i++) {
+             for (;;) break;
+             if (i == 3) break;
+           }
+           i;
+         }));
+  ASSERT(4, ({
+           int i = 0;
+           while (1) {
+             while (1) break;
+             if (i++ == 3) break;
+           }
+           i;
+         }));
+
   return 0;
 }
