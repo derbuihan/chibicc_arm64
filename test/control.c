@@ -255,5 +255,14 @@ int main() {
            i;
          }));
 
+  ASSERT(1, 0 || 1);
+  ASSERT(1, 0 || (2 - 2) || 5);
+  ASSERT(0, 0 || 0);
+  ASSERT(0, 0 || (2 - 2));
+
+  ASSERT(0, 0 && 1);
+  ASSERT(0, (2 - 2) && 5);
+  ASSERT(1, 1 && 5);
+
   return 0;
 }
