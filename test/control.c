@@ -345,5 +345,60 @@ int main() {
            i;
          }));
 
+  ASSERT(10, ({
+           int i = 0;
+           int j = 0;
+           for (; i < 10; i++) {
+             if (i > 5) continue;
+             j++;
+           }
+           i;
+         }));
+  ASSERT(6, ({
+           int i = 0;
+           int j = 0;
+           for (; i < 10; i++) {
+             if (i > 5) continue;
+             j++;
+           }
+           j;
+         }));
+  ASSERT(10, ({
+           int i = 0;
+           int j = 0;
+           for (; !i;) {
+             for (; j != 10; j++) continue;
+             break;
+           }
+           j;
+         }));
+  ASSERT(11, ({
+           int i = 0;
+           int j = 0;
+           while (i++ < 10) {
+             if (i > 5) continue;
+             j++;
+           }
+           i;
+         }));
+  ASSERT(5, ({
+           int i = 0;
+           int j = 0;
+           while (i++ < 10) {
+             if (i > 5) continue;
+             j++;
+           }
+           j;
+         }));
+  ASSERT(11, ({
+           int i = 0;
+           int j = 0;
+           while (!i) {
+             while (j++ != 10) continue;
+             break;
+           }
+           j;
+         }));
+
   return 0;
 }

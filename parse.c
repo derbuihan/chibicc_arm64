@@ -43,6 +43,8 @@ static Node *labels;
 
 static char *brk_label;
 
+static char *cont_label;
+
 static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
@@ -415,6 +417,7 @@ static bool is_typename(Token *tok) {
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
 //      | "break" ";"
+//      | "continue" ";"
 //      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
@@ -946,6 +949,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
 //      | "break" ";"
+//      | "continue" ";"
 //      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
@@ -988,7 +992,9 @@ Node *stmt(Token **rest, Token *tok) {
     enter_scope();
 
     char *brk = brk_label;
+    char *cont = cont_label;
     brk_label = node->brk_label = new_unique_name();
+    cont_label = node->cont_label = new_unique_name();
 
     if (is_typename(tok)) {
       Type *basety = declspec(&tok, tok, NULL);
@@ -1012,6 +1018,7 @@ Node *stmt(Token **rest, Token *tok) {
     leave_scope();
     *rest = tok;
     brk_label = brk;
+    cont_label = cont;
     return node;
   }
 
@@ -1023,10 +1030,13 @@ Node *stmt(Token **rest, Token *tok) {
     assert(equal(tok, ")"));
 
     char *brk = brk_label;
+    char *cont = cont_label;
     brk_label = node->brk_label = new_unique_name();
+    cont_label = node->cont_label = new_unique_name();
     node->then = stmt(&tok, tok->next);
     *rest = tok;
     brk_label = brk;
+    cont_label = cont;
     return node;
   }
 
@@ -1048,6 +1058,17 @@ Node *stmt(Token **rest, Token *tok) {
     }
     Node *node = new_node(ND_GOTO, NULL, NULL, tok);
     node->unique_label = brk_label;
+    assert(equal(tok->next, ";"));
+    *rest = tok = tok->next;  // skip ";"
+    return node;
+  }
+
+  if (equal(tok, "continue")) {
+    if (!cont_label) {
+      error_tok(tok, "stray continue");
+    }
+    Node *node = new_node(ND_GOTO, NULL, NULL, tok);
+    node->unique_label = cont_label;
     assert(equal(tok->next, ";"));
     *rest = tok = tok->next;  // skip ";"
     return node;
