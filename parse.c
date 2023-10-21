@@ -85,6 +85,8 @@ static Node *expr(Token **rest, Token *tok);
 
 static Node *assign(Token **rest, Token *tok);
 
+static Node *conditional(Token **rest, Token *tok);
+
 static Node *logor(Token **rest, Token *tok);
 
 static Node *logand(Token **rest, Token *tok);
@@ -430,9 +432,10 @@ static bool is_typename(Token *tok) {
 //      | expr-stmt
 // expr-stmt = expr? ";"
 // expr = assign ("," expr)?
-// assign = logor (assign-op assign)?
+// assign = conditional (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
 //           | "<<=" | ">>="
+// conditional = logor ("?" expr ":" conditional)?
 // logor = logand ("||" logand)*
 // logand = bitor ("&&" bitor)*
 // bitor = bitxor ("|" bitxor)*
@@ -1192,11 +1195,11 @@ Node *expr(Token **rest, Token *tok) {
   return node;
 }
 
-// assign = logor (assign-op assign)?
+// assign = conditional (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
 //           | "<<=" | ">>="
 Node *assign(Token **rest, Token *tok) {
-  Node *node = logor(&tok, tok);
+  Node *node = conditional(&tok, tok);
 
   if (equal(tok, "=")) {
     node = new_node(ND_ASSIGN, node, assign(&tok, tok->next), tok);
@@ -1242,6 +1245,22 @@ Node *assign(Token **rest, Token *tok) {
     node = to_assign(new_node(ND_SHR, node, assign(&tok, tok->next), tok));
   }
 
+  *rest = tok;
+  return node;
+}
+
+// conditional = logor ("?" expr ":" conditional)?
+Node *conditional(Token **rest, Token *tok) {
+  Node *cond = logor(&tok, tok);
+  if (!equal(tok, "?")) {
+    *rest = tok;
+    return cond;
+  }
+  Node *node = new_node(ND_COND, NULL, NULL, tok);
+  node->cond = cond;
+  node->then = expr(&tok, tok->next);
+  assert(equal(tok, ":"));
+  node->els = conditional(&tok, tok->next);
   *rest = tok;
   return node;
 }
