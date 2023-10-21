@@ -384,6 +384,26 @@ void gen_stmt(Node *node) {
       println("%s:", node->brk_label);
       return;
     }
+    case ND_SWITCH:
+      println("; gen_stmt: ND_SWITCH");
+      gen_expr(node->cond);
+      for (Node *n = node->case_next; n; n = n->case_next) {
+        char *reg = (node->cond->ty->size == 8) ? "x0" : "w0";
+        println("    cmp %s, %ld", reg, n->val);
+        println("    b.eq %s", n->label);
+      }
+      if (node->default_case) {
+        println("    b %s", node->default_case->label);
+      }
+      println("    b %s", node->brk_label);
+      gen_stmt(node->then);
+      println("%s:", node->brk_label);
+      return;
+    case ND_CASE:
+      println("; gen_stmt: ND_CASE");
+      println("%s:", node->label);
+      gen_stmt(node->lhs);
+      return;
     case ND_BLOCK: {
       println("; gen_stmt: ND_BLOCK");
       for (Node *n = node->body; n; n = n->next) {

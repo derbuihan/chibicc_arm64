@@ -101,6 +101,8 @@ typedef enum {
   ND_RETURN,     // "return"
   ND_IF,         // "if"
   ND_FOR,        // "for" or "while"
+  ND_SWITCH,     // "switch"
+  ND_CASE,       // "case"
   ND_BLOCK,      // { ... }
   ND_GOTO,       // "goto"
   ND_LABEL,      // Labeled statement
@@ -148,8 +150,15 @@ struct Node {
   char *unique_label;
   Node *goto_next;
 
-  Obj *var;     // Variable name. Used if kind is ND_VAR.
-  int64_t val;  // Value. Used if kind is ND_NUM.
+  // Switch-cases
+  Node *case_next;
+  Node *default_case;
+
+  // Variable
+  Obj *var;
+
+  // Numeric literal
+  int64_t val;
 };
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);

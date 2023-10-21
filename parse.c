@@ -45,6 +45,8 @@ static char *brk_label;
 
 static char *cont_label;
 
+static Node *current_switch;
+
 static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
@@ -413,6 +415,9 @@ static bool is_typename(Token *tok) {
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "switch" "(" expr ")" stmt
+//      | "case" num ":" stmt
+//      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
@@ -945,6 +950,9 @@ Node *compound_stmt(Token **rest, Token *tok) {
 
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "switch" "(" expr ")" stmt
+//      | "case" num ":" stmt
+//      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
@@ -979,6 +987,65 @@ Node *stmt(Token **rest, Token *tok) {
       node->els = stmt(&tok, tok->next);
     }
 
+    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "switch")) {
+    Node *node = new_node(ND_SWITCH, NULL, NULL, tok);
+    tok = tok->next;  // skip "switch"
+    assert(equal(tok, "("));
+    node->cond = expr(&tok, tok->next);
+    assert(equal(tok, ")"));
+
+    Node *sw = current_switch;
+    current_switch = node;
+
+    char *brk = brk_label;
+    brk_label = node->brk_label = new_unique_name();
+
+    node->then = stmt(&tok, tok->next);
+    *rest = tok;
+
+    current_switch = sw;
+    brk_label = brk;
+    return node;
+  }
+
+  if (equal(tok, "case")) {
+    if (!current_switch) {
+      error_tok(tok, "stray case");
+    }
+    tok = tok->next;  // skip "case"
+
+    assert(tok->kind == TK_NUM);
+    int val = tok->val;
+    Node *node = new_node(ND_CASE, NULL, NULL, tok);
+    tok = tok->next;  // skip num
+
+    assert(equal(tok, ":"));
+    tok = tok->next;  // skip ":"
+
+    node->label = new_unique_name();
+    node->lhs = stmt(&tok, tok);
+    node->val = val;
+    node->case_next = current_switch->case_next;
+    current_switch->case_next = node;
+    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "default")) {
+    if (!current_switch) {
+      error_tok(tok, "stray default");
+    }
+    Node *node = new_node(ND_CASE, NULL, NULL, tok);
+    tok = tok->next;  // skip "default"
+    assert(equal(tok, ":"));
+    tok = tok->next;  // skip ":"
+    node->label = new_unique_name();
+    node->lhs = stmt(&tok, tok);
+    current_switch->default_case = node;
     *rest = tok;
     return node;
   }
