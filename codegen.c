@@ -341,6 +341,14 @@ void gen_expr(Node *node) {
         println("    cset %s, LE", r0);
       }
       return;
+    case ND_SHL:
+      println("; gen_expr: ND_SHL");
+      println("    lsl %s, %s, %s", r0, r0, r1);
+      return;
+    case ND_SHR:
+      println("; gen_expr: ND_SHR");
+      println("    asr %s, %s, %s", r0, r0, r1);
+      return;
     default:
       break;
   }

@@ -99,6 +99,8 @@ static Node *equality(Token **rest, Token *tok);
 
 static Node *relational(Token **rest, Token *tok);
 
+static Node *shift(Token **rest, Token *tok);
+
 static Node *add(Token **rest, Token *tok);
 
 static Node *mul(Token **rest, Token *tok);
@@ -430,13 +432,15 @@ static bool is_typename(Token *tok) {
 // expr = assign ("," expr)?
 // assign = logor (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+//           | "<<=" | ">>="
 // logor = logand ("||" logand)*
 // logand = bitor ("&&" bitor)*
 // bitor = bitxor ("|" bitxor)*
 // bitxor = bitand ("^" bitand)*
 // bitand = equality ("&" equality)*
 // equality = relational ("==" relational | "!=" relational)*
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
+// shift = add ("<<" add | ">>" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = cast ("*" cast | "/" cast | "%" cast)*
 // cast = "(" type-name ")" cast | unary
@@ -1190,6 +1194,7 @@ Node *expr(Token **rest, Token *tok) {
 
 // assign = logor (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+//           | "<<=" | ">>="
 Node *assign(Token **rest, Token *tok) {
   Node *node = logor(&tok, tok);
 
@@ -1227,6 +1232,14 @@ Node *assign(Token **rest, Token *tok) {
 
   if (equal(tok, "^=")) {
     node = to_assign(new_node(ND_BITXOR, node, assign(&tok, tok->next), tok));
+  }
+
+  if (equal(tok, "<<=")) {
+    node = to_assign(new_node(ND_SHL, node, assign(&tok, tok->next), tok));
+  }
+
+  if (equal(tok, ">>=")) {
+    node = to_assign(new_node(ND_SHR, node, assign(&tok, tok->next), tok));
   }
 
   *rest = tok;
@@ -1304,25 +1317,46 @@ Node *equality(Token **rest, Token *tok) {
   }
 }
 
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
 Node *relational(Token **rest, Token *tok) {
-  Node *node = add(&tok, tok);
+  Node *node = shift(&tok, tok);
 
   for (;;) {
     if (equal(tok, "<")) {
-      node = new_node(ND_LT, node, add(&tok, tok->next), tok);
+      node = new_node(ND_LT, node, shift(&tok, tok->next), tok);
       continue;
     }
     if (equal(tok, ">")) {
-      node = new_node(ND_LT, add(&tok, tok->next), node, tok);
+      node = new_node(ND_LT, shift(&tok, tok->next), node, tok);
       continue;
     }
     if (equal(tok, "<=")) {
-      node = new_node(ND_LE, node, add(&tok, tok->next), tok);
+      node = new_node(ND_LE, node, shift(&tok, tok->next), tok);
       continue;
     }
     if (equal(tok, ">=")) {
-      node = new_node(ND_LE, add(&tok, tok->next), node, tok);
+      node = new_node(ND_LE, shift(&tok, tok->next), node, tok);
+      continue;
+    }
+
+    *rest = tok;
+    return node;
+  }
+}
+
+// shift = add ("<<" add | ">>" add)*
+Node *shift(Token **rest, Token *tok) {
+  Node *node = add(&tok, tok);
+
+  for (;;) {
+    Token *start = tok;
+
+    if (equal(tok, "<<")) {
+      node = new_node(ND_SHL, node, add(&tok, tok->next), start);
+      continue;
+    }
+    if (equal(tok, ">>")) {
+      node = new_node(ND_SHR, node, add(&tok, tok->next), start);
       continue;
     }
 
