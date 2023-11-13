@@ -85,6 +85,8 @@ static Node *expr(Token **rest, Token *tok);
 
 static Node *assign(Token **rest, Token *tok);
 
+static int64_t const_expr(Token **rest, Token *tok);
+
 static Node *conditional(Token **rest, Token *tok);
 
 static Node *logor(Token **rest, Token *tok);
@@ -404,7 +406,7 @@ static bool is_typename(Token *tok) {
 //             | ε
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
-// array-dimensions = num? "]" type-suffix
+// array-dimensions = const-expr? "]" type-suffix
 // struct-decl = ident? "{" struct-members
 // struct-decl = struct-union-decl
 // union-decl = struct-union-decl
@@ -412,7 +414,7 @@ static bool is_typename(Token *tok) {
 // struct-members = (declspec declarator ("," declarator)* ";")* "}"
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
-// enum-list = ident ("=" num)? ("," ident ("=" num)?)*
+// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
 // declaration = declspec (declarator ("=" expr)?
 //                         ("," declarator ("=" expr)?)*)? ";"
 // declaration = (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
@@ -420,7 +422,7 @@ static bool is_typename(Token *tok) {
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "switch" "(" expr ")" stmt
-//      | "case" num ":" stmt
+//      | "case" const-expr ":" stmt
 //      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
@@ -435,6 +437,7 @@ static bool is_typename(Token *tok) {
 // assign = conditional (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
 //           | "<<=" | ">>="
+// const-expr = conditional
 // conditional = logor ("?" expr ":" conditional)?
 // logor = logand ("||" logand)*
 // logand = bitor ("&&" bitor)*
@@ -700,15 +703,13 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// array-dimensions = num? "]" type-suffix
+// array-dimensions = const-expr? "]" type-suffix
 static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
   if (equal(tok, "]")) {
     ty = type_suffix(rest, tok->next, ty);
     return array_of(ty, -1);
   }
-  assert(tok->kind == TK_NUM);
-  int sz = tok->val;
-  tok = tok->next;  // skip num
+  int sz = const_expr(&tok, tok);
   assert(equal(tok, "]"));
   *rest = tok = tok->next;  // skip "]"
   ty = type_suffix(rest, tok, ty);
@@ -829,7 +830,7 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
 
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
-// enum-list = ident ("=" num)? ("," ident ("=" num)?)*
+// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
 static Type *enum_specifier(Token **rest, Token *tok) {
   Type *ty = enum_type();
 
@@ -866,10 +867,7 @@ static Type *enum_specifier(Token **rest, Token *tok) {
     tok = tok->next;  // skip ident
 
     if (equal(tok, "=")) {
-      tok = tok->next;  // skip "="
-      assert(tok->kind == TK_NUM);
-      val = tok->val;
-      tok = tok->next;  // skip num
+      val = const_expr(&tok, tok->next);
     }
 
     VarScope *sc = push_scope(name);
@@ -958,7 +956,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "switch" "(" expr ")" stmt
-//      | "case" num ":" stmt
+//      | "case" const-expr ":" stmt
 //      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
@@ -1026,9 +1024,8 @@ Node *stmt(Token **rest, Token *tok) {
     tok = tok->next;  // skip "case"
 
     assert(tok->kind == TK_NUM);
-    int val = tok->val;
+    int val = const_expr(&tok, tok);
     Node *node = new_node(ND_CASE, NULL, NULL, tok);
-    tok = tok->next;  // skip num
 
     assert(equal(tok, ":"));
     tok = tok->next;  // skip ":"
@@ -1247,6 +1244,76 @@ Node *assign(Token **rest, Token *tok) {
 
   *rest = tok;
   return node;
+}
+
+static int64_t eval(Node *node) {
+  add_type(node);
+  switch (node->kind) {
+    case ND_ADD:
+      return eval(node->lhs) + eval(node->rhs);
+    case ND_SUB:
+      return eval(node->lhs) - eval(node->rhs);
+    case ND_MUL:
+      return eval(node->lhs) * eval(node->rhs);
+    case ND_DIV:
+      return eval(node->lhs) / eval(node->rhs);
+    case ND_NEG:
+      return -eval(node->lhs);
+    case ND_MOD:
+      return eval(node->lhs) % eval(node->rhs);
+    case ND_BITAND:
+      return eval(node->lhs) & eval(node->rhs);
+    case ND_BITOR:
+      return eval(node->lhs) | eval(node->rhs);
+    case ND_BITXOR:
+      return eval(node->lhs) ^ eval(node->rhs);
+    case ND_SHL:
+      return eval(node->lhs) << eval(node->rhs);
+    case ND_SHR:
+      return eval(node->lhs) >> eval(node->rhs);
+    case ND_EQ:
+      return eval(node->lhs) == eval(node->rhs);
+    case ND_NE:
+      return eval(node->lhs) != eval(node->rhs);
+    case ND_LT:
+      return eval(node->lhs) < eval(node->rhs);
+    case ND_LE:
+      return eval(node->lhs) <= eval(node->rhs);
+    case ND_COND:
+      return eval(node->cond) ? eval(node->then) : eval(node->els);
+    case ND_COMMA:
+      return eval(node->rhs);
+    case ND_NOT:
+      return !eval(node->lhs);
+    case ND_BITNOT:
+      return ~eval(node->lhs);
+    case ND_LOGAND:
+      return eval(node->lhs) && eval(node->rhs);
+    case ND_LOGOR:
+      return eval(node->lhs) || eval(node->rhs);
+    case ND_CAST:
+      if (is_integer(node->ty)) {
+        switch (node->ty->size) {
+          case 1:
+            return (int8_t)eval(node->lhs);
+          case 2:
+            return (int16_t)eval(node->lhs);
+          case 4:
+            return (int32_t)eval(node->lhs);
+        }
+      }
+      return eval(node->lhs);
+    case ND_NUM:
+      return node->val;
+  }
+  error_tok(node->tok, "not a constant expression");
+}
+
+// const-expr = conditional
+int64_t const_expr(Token **rest, Token *tok) {
+  Node *node = conditional(&tok, tok);
+  *rest = tok;
+  return eval(node);
 }
 
 // conditional = logor ("?" expr ":" conditional)?
