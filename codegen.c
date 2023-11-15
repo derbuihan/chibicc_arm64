@@ -148,6 +148,9 @@ static void cast(Type *from, Type *to) {
 
 void gen_expr(Node *node) {
   switch (node->kind) {
+    case ND_NULL_EXPR:
+      println("; gen_expr: ND_NULL_EXPR");
+      return;
     case ND_NUM:
       println("; gen_expr: ND_NUM");
       if (node->val > 281474976710655) {

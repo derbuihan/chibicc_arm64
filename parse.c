@@ -29,6 +29,22 @@ typedef struct {
   bool is_static;
 } VarAttr;
 
+typedef struct Initializer Initializer;
+struct Initializer {
+  Initializer *next;
+  Type *ty;
+  Token *tok;
+  Node *expr;
+  Initializer **children;
+};
+
+typedef struct InitDesg InitDesg;
+struct InitDesg {
+  InitDesg *next;
+  int idx;
+  Obj *var;
+};
+
 static Obj *locals;
 
 static Obj *globals;
@@ -74,6 +90,8 @@ static void struct_members(Token **rest, Token *tok, Type *ty);
 static Type *enum_specifier(Token **rest, Token *tok);
 
 static Node *declaration(Token **rest, Token *tok, Type *basety);
+
+static Node *lvar_initializer(Token **rest, Token *tok, Obj *var);
 
 static Node *compound_stmt(Token **rest, Token *tok);
 
@@ -176,6 +194,20 @@ static VarScope *push_scope(char *name) {
   sc->next = scope->vars;
   scope->vars = sc;
   return sc;
+}
+
+static Initializer *new_initializer(Type *ty) {
+  Initializer *init = calloc(1, sizeof(Initializer));
+  init->ty = ty;
+
+  if (ty->kind == TY_ARRAY) {
+    init->children = calloc(ty->array_len, sizeof(Initializer *));
+    for (int i = 0; i < ty->array_len; i++) {
+      init->children[i] = new_initializer(ty->base);
+    }
+  }
+
+  return init;
 }
 
 static Obj *new_var(char *name, Type *ty) {
@@ -415,9 +447,9 @@ static bool is_typename(Token *tok) {
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
 // enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
-// declaration = declspec (declarator ("=" expr)?
-//                         ("," declarator ("=" expr)?)*)? ";"
-// declaration = (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declaration = (declarator ("=" initializer)?
+//               ("," declarator ("=" initializer)?)*)? ";"
+// initializer = "{" initializer ("," initializer)* "}" | assign
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -881,7 +913,8 @@ static Type *enum_specifier(Token **rest, Token *tok) {
   return ty;
 }
 
-// declaration = (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declaration = (declarator ("=" initializer)?
+//               ("," declarator ("=" initializer)?)*)? ";"
 Node *declaration(Token **rest, Token *tok, Type *basety) {
   Node head = {};
   Node *cur = &head;
@@ -902,21 +935,82 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
 
     assert(ty->name->kind == TK_IDENT);
     Obj *var = new_lvar(get_ident(ty->name), ty);
-    if (!equal(tok, "=")) {
-      continue;
-    }
 
-    Node *lhs = new_node(ND_VAR, NULL, NULL, tok);
-    lhs->var = var;
-    Node *rhs = assign(&tok, tok->next);
-    Node *node = new_node(ND_ASSIGN, lhs, rhs, tok);
-    cur = cur->next = new_node(ND_EXPR_STMT, node, NULL, tok);
+    if (equal(tok, "=")) {
+      Node *expr = lvar_initializer(&tok, tok->next, var);
+      cur = cur->next = new_node(ND_EXPR_STMT, expr, NULL, tok);
+    }
   }
 
   Node *node = new_node(ND_BLOCK, NULL, NULL, tok);
   node->body = head.next;
   *rest = tok->next;  // skip ';'
   return node;
+}
+
+// initializer = "{" initializer ("," initializer)* "}" | assign
+static void initializer2(Token **rest, Token *tok, Initializer *init) {
+  if (init->ty->kind == TY_ARRAY) {
+    assert(equal(tok, "{"));
+    tok = tok->next;  // skip "{"
+
+    for (int i = 0; i < init->ty->array_len; i++) {
+      if (i > 0) {
+        assert(equal(tok, ","));
+        tok = tok->next;  // skip ","
+      }
+      initializer2(&tok, tok, init->children[i]);
+    }
+    assert(equal(tok, "}"));
+    *rest = tok->next;  // skip "}"
+    return;
+  }
+  init->expr = assign(rest, tok);
+}
+
+static Node *initializer(Token **rest, Token *tok, Type *ty) {
+  Initializer *init = new_initializer(ty);
+  initializer2(rest, tok, init);
+  return init;
+}
+
+static Node *init_desg_expr(InitDesg *desg, Token *tok) {
+  if (desg->var) {
+    Node *node = new_node(ND_VAR, NULL, NULL, tok);
+    node->var = desg->var;
+    return node;
+  }
+
+  Node *lhs = init_desg_expr(desg->next, tok);
+  Node *rhs = new_node(ND_NUM, NULL, NULL, tok);
+  rhs->val = desg->idx;
+
+  Node *node = new_node(ND_DEREF, new_add(lhs, rhs, tok), NULL, tok);
+  return node;
+}
+
+static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
+                              Token *tok) {
+  if (ty->kind == TY_ARRAY) {
+    Node *node = new_node(ND_NULL_EXPR, NULL, NULL, tok);
+    for (int i = 0; i < ty->array_len; i++) {
+      InitDesg desg2 = {desg, i};
+      Node *rhs = create_lvar_init(init->children[i], ty->base, &desg2, tok);
+      node = new_node(ND_COMMA, node, rhs, tok);
+    }
+    return node;
+  }
+
+  Node *lhs = init_desg_expr(desg, tok);
+  Node *rhs = init->expr;
+  Node *node = new_node(ND_ASSIGN, lhs, rhs, tok);
+  return node;
+}
+
+static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
+  Initializer *init = initializer(rest, tok, var->ty);
+  InitDesg desg = {NULL, 0, var};
+  return create_lvar_init(init, var->ty, &desg, tok);
 }
 
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
