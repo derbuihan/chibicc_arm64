@@ -91,6 +91,14 @@ static Type *enum_specifier(Token **rest, Token *tok);
 
 static Node *declaration(Token **rest, Token *tok, Type *basety);
 
+static void initializer2(Token **rest, Token *tok, Initializer *init);
+
+static Initializer *initializer(Token **rest, Token *tok, Type *ty);
+
+static void array_initializer(Token **rest, Token *tok, Initializer *init);
+
+static void string_initializer(Token **rest, Token *tok, Initializer *init);
+
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var);
 
 static Node *compound_stmt(Token **rest, Token *tok);
@@ -449,7 +457,9 @@ static bool is_typename(Token *tok) {
 // enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
 // declaration = (declarator ("=" initializer)?
 //               ("," declarator ("=" initializer)?)*)? ";"
-// initializer = "{" initializer ("," initializer)* "}" | assign
+// initializer = string-initializer | array-initializer | assign
+// array-initializer = "{" initializer ("," initializer)* "}"
+// string-initializer = string-literal
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -948,8 +958,7 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
   return node;
 }
 
-// initializer = "{" initializer ("," initializer)* "}" | assign
-
+// initializer = string-initializer | array-initializer | assign
 static Token *skip_excess_element(Token *tok) {
   if (equal(tok, "{")) {
     tok = skip_excess_element(tok->next);
@@ -961,28 +970,20 @@ static Token *skip_excess_element(Token *tok) {
 }
 
 static void initializer2(Token **rest, Token *tok, Initializer *init) {
-  if (init->ty->kind == TY_ARRAY) {
-    assert(equal(tok, "{"));
-    tok = tok->next;  // skip "{"
-    for (int i = 0; !equal(tok, "}"); i++) {
-      if (i > 0) {
-        assert(equal(tok, ","));
-        tok = tok->next;  // skip ","
-      }
-      if (i < init->ty->array_len) {
-        initializer2(&tok, tok, init->children[i]);
-      } else {
-        tok = skip_excess_element(tok);
-      }
-    }
-    assert(equal(tok, "}"));
-    *rest = tok->next;  // skip "}"
+  if (init->ty->kind == TY_ARRAY && tok->kind == TK_STR) {
+    string_initializer(rest, tok, init);
     return;
   }
+
+  if (init->ty->kind == TY_ARRAY) {
+    array_initializer(rest, tok, init);
+    return;
+  }
+
   init->expr = assign(rest, tok);
 }
 
-static Node *initializer(Token **rest, Token *tok, Type *ty) {
+static Initializer *initializer(Token **rest, Token *tok, Type *ty) {
   Initializer *init = new_initializer(ty);
   initializer2(rest, tok, init);
   return init;
@@ -1034,6 +1035,36 @@ static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
 
   Node *rhs = create_lvar_init(init, var->ty, &desg, tok);
   return new_node(ND_COMMA, lhs, rhs, tok);
+}
+
+// array-initializer = "{" initializer ("," initializer)* "}"
+static void array_initializer(Token **rest, Token *tok, Initializer *init) {
+  assert(equal(tok, "{"));
+  tok = tok->next;  // skip "{"
+
+  for (int i = 0; !equal(tok, "}"); i++) {
+    if (i > 0) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ","
+    }
+    if (i < init->ty->array_len) {
+      initializer2(&tok, tok, init->children[i]);
+    } else {
+      tok = skip_excess_element(tok);
+    }
+  }
+  *rest = tok->next;  // skip "}"
+}
+
+// string-initializer = string-literal
+static void string_initializer(Token **rest, Token *tok, Initializer *init) {
+  int len = MIN(init->ty->array_len, tok->ty->array_len);
+
+  for (int i = 0; i < len; i++) {
+    init->children[i]->expr = new_node(ND_NUM, NULL, NULL, tok);
+    init->children[i]->expr->val = tok->str[i];
+  }
+  *rest = tok->next;
 }
 
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
