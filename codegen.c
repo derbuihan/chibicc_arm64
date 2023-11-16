@@ -217,6 +217,21 @@ void gen_expr(Node *node) {
       gen_expr(node->lhs);
       cast(node->lhs->ty, node->ty);
       return;
+    case ND_MEMZERO: {
+      println("; gen_expr: ND_MEMZERO");
+      int c = count++;
+      println("    mov x1, %d", node->var->ty->size);
+      println("    add x0, x29, %d", node->var->offset);
+      println(".L.memset.loop.%d:", c);
+      println("    cmp x1, 0");
+      println("    beq .L.memset.end.%d", c);
+      println("    strb wzr, [x0]");
+      println("    add x0, x0, 1");
+      println("    sub x1, x1, 1");
+      println("    b .L.memset.loop.%d", c);
+      println(".L.memset.end.%d:", c);
+      return;
+    }
     case ND_COND: {
       println("; gen_expr: ND_COND");
       int c = count++;

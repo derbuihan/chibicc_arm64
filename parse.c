@@ -954,7 +954,7 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
     assert(equal(tok, "{"));
     tok = tok->next;  // skip "{"
 
-    for (int i = 0; i < init->ty->array_len; i++) {
+    for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
       if (i > 0) {
         assert(equal(tok, ","));
         tok = tok->next;  // skip ","
@@ -1001,6 +1001,10 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
     return node;
   }
 
+  if (!init->expr) {
+    return new_node(ND_NULL_EXPR, NULL, NULL, tok);
+  }
+
   Node *lhs = init_desg_expr(desg, tok);
   Node *rhs = init->expr;
   Node *node = new_node(ND_ASSIGN, lhs, rhs, tok);
@@ -1010,7 +1014,12 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   Initializer *init = initializer(rest, tok, var->ty);
   InitDesg desg = {NULL, 0, var};
-  return create_lvar_init(init, var->ty, &desg, tok);
+  
+  Node *lhs = new_node(ND_MEMZERO, NULL, NULL, tok);
+  lhs->var = var;
+
+  Node *rhs = create_lvar_init(init, var->ty, &desg, tok);
+  return new_node(ND_COMMA, lhs, rhs, tok);
 }
 
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
