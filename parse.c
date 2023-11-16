@@ -34,6 +34,7 @@ struct Initializer {
   Initializer *next;
   Type *ty;
   Token *tok;
+  bool is_flexible;
   Node *expr;
   Initializer **children;
 };
@@ -93,7 +94,8 @@ static Node *declaration(Token **rest, Token *tok, Type *basety);
 
 static void initializer2(Token **rest, Token *tok, Initializer *init);
 
-static Initializer *initializer(Token **rest, Token *tok, Type *ty);
+static Initializer *initializer(Token **rest, Token *tok, Type *ty,
+                                Type **new_ty);
 
 static void array_initializer(Token **rest, Token *tok, Initializer *init);
 
@@ -204,14 +206,19 @@ static VarScope *push_scope(char *name) {
   return sc;
 }
 
-static Initializer *new_initializer(Type *ty) {
+static Initializer *new_initializer(Type *ty, bool is_flexible) {
   Initializer *init = calloc(1, sizeof(Initializer));
   init->ty = ty;
 
   if (ty->kind == TY_ARRAY) {
+    if (is_flexible && ty->size < 0) {
+      init->is_flexible = true;
+      return init;
+    }
+
     init->children = calloc(ty->array_len, sizeof(Initializer *));
     for (int i = 0; i < ty->array_len; i++) {
-      init->children[i] = new_initializer(ty->base);
+      init->children[i] = new_initializer(ty->base, false);
     }
   }
 
@@ -936,9 +943,6 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
       *rest = tok = tok->next;  // skip ','
     }
     Type *ty = declarator(&tok, tok, basety);
-    if (ty->size < 0) {
-      error_tok(tok, "variable has incomplete type");
-    }
     if (ty->kind == TY_VOID) {
       error_tok(ty->name, "variable declared void");
     }
@@ -949,6 +953,14 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
     if (equal(tok, "=")) {
       Node *expr = lvar_initializer(&tok, tok->next, var);
       cur = cur->next = new_node(ND_EXPR_STMT, expr, NULL, tok);
+    }
+
+    if (var->ty->size < 0) {
+      error_tok(ty->name, "variable has incomplete type");
+    }
+
+    if (var->ty->kind == TY_VOID) {
+      error_tok(ty->name, "variable declared void");
     }
   }
 
@@ -983,9 +995,11 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
   init->expr = assign(rest, tok);
 }
 
-static Initializer *initializer(Token **rest, Token *tok, Type *ty) {
-  Initializer *init = new_initializer(ty);
+static Initializer *initializer(Token **rest, Token *tok, Type *ty,
+                                Type **new_ty) {
+  Initializer *init = new_initializer(ty, true);
   initializer2(rest, tok, init);
+  *new_ty = init->ty;
   return init;
 }
 
@@ -1027,7 +1041,7 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
 }
 
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
-  Initializer *init = initializer(rest, tok, var->ty);
+  Initializer *init = initializer(rest, tok, var->ty, &var->ty);
   InitDesg desg = {NULL, 0, var};
 
   Node *lhs = new_node(ND_MEMZERO, NULL, NULL, tok);
@@ -1038,9 +1052,28 @@ static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
 }
 
 // array-initializer = "{" initializer ("," initializer)* "}"
+static int count_array_init_elements(Token *tok, Type *ty) {
+  Initializer *dummy = new_initializer(ty->base, false);
+  int i = 0;
+
+  for (; !equal(tok, "}"); i++) {
+    if (i > 0) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ","
+    }
+    initializer2(&tok, tok, dummy);
+  }
+  return i;
+}
+
 static void array_initializer(Token **rest, Token *tok, Initializer *init) {
   assert(equal(tok, "{"));
   tok = tok->next;  // skip "{"
+
+  if (init->is_flexible) {
+    int len = count_array_init_elements(tok, init->ty);
+    *init = *new_initializer(array_of(init->ty->base, len), false);
+  }
 
   for (int i = 0; !equal(tok, "}"); i++) {
     if (i > 0) {
@@ -1058,6 +1091,11 @@ static void array_initializer(Token **rest, Token *tok, Initializer *init) {
 
 // string-initializer = string-literal
 static void string_initializer(Token **rest, Token *tok, Initializer *init) {
+  if (init->is_flexible) {
+    *init =
+        *new_initializer(array_of(init->ty->base, tok->ty->array_len), false);
+  }
+
   int len = MIN(init->ty->array_len, tok->ty->array_len);
 
   for (int i = 0; i < len; i++) {
