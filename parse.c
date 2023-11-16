@@ -949,17 +949,31 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
 }
 
 // initializer = "{" initializer ("," initializer)* "}" | assign
+
+static Token *skip_excess_element(Token *tok) {
+  if (equal(tok, "{")) {
+    tok = skip_excess_element(tok->next);
+    assert(equal(tok, "}"));
+    return tok->next;
+  }
+  assign(&tok, tok);
+  return tok;
+}
+
 static void initializer2(Token **rest, Token *tok, Initializer *init) {
   if (init->ty->kind == TY_ARRAY) {
     assert(equal(tok, "{"));
     tok = tok->next;  // skip "{"
-
-    for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
+    for (int i = 0; !equal(tok, "}"); i++) {
       if (i > 0) {
         assert(equal(tok, ","));
         tok = tok->next;  // skip ","
       }
-      initializer2(&tok, tok, init->children[i]);
+      if (i < init->ty->array_len) {
+        initializer2(&tok, tok, init->children[i]);
+      } else {
+        tok = skip_excess_element(tok);
+      }
     }
     assert(equal(tok, "}"));
     *rest = tok->next;  // skip "}"
@@ -1014,7 +1028,7 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   Initializer *init = initializer(rest, tok, var->ty);
   InitDesg desg = {NULL, 0, var};
-  
+
   Node *lhs = new_node(ND_MEMZERO, NULL, NULL, tok);
   lhs->var = var;
 
