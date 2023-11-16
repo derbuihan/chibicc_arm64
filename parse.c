@@ -43,6 +43,7 @@ typedef struct InitDesg InitDesg;
 struct InitDesg {
   InitDesg *next;
   int idx;
+  Member *member;
   Obj *var;
 };
 
@@ -100,6 +101,8 @@ static Initializer *initializer(Token **rest, Token *tok, Type *ty,
 static void array_initializer(Token **rest, Token *tok, Initializer *init);
 
 static void string_initializer(Token **rest, Token *tok, Initializer *init);
+
+static void struct_initializer(Token **rest, Token *tok, Initializer *init);
 
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var);
 
@@ -220,6 +223,19 @@ static Initializer *new_initializer(Type *ty, bool is_flexible) {
     for (int i = 0; i < ty->array_len; i++) {
       init->children[i] = new_initializer(ty->base, false);
     }
+    return init;
+  }
+
+  if (ty->kind == TY_STRUCT) {
+    int len = 0;
+    for (Member *mem = ty->members; mem; mem = mem->next) {
+      len++;
+    }
+    init->children = calloc(len, sizeof(Initializer *));
+    for (Member *mem = ty->members; mem; mem = mem->next) {
+      init->children[mem->idx] = new_initializer(mem->ty, false);
+    }
+    return init;
   }
 
   return init;
@@ -464,9 +480,11 @@ static bool is_typename(Token *tok) {
 // enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
 // declaration = (declarator ("=" initializer)?
 //               ("," declarator ("=" initializer)?)*)? ";"
-// initializer = string-initializer | array-initializer | assign
+// initializer =  array-initializer | string-initializer | struct-initializer
+//             | assign
 // array-initializer = "{" initializer ("," initializer)* "}"
 // string-initializer = string-literal
+// struct-initializer = "{" initializer ("," initializer)* "}"
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -851,20 +869,23 @@ static Type *struct_union_decl(Token **rest, Token *tok) {
 static void struct_members(Token **rest, Token *tok, Type *ty) {
   Member head = {};
   Member *cur = &head;
+  int idx = 0;
 
   while (!equal(tok, "}")) {
     Type *basety = declspec(&tok, tok, NULL);
-    int i = 0;
+    bool first = true;
 
     while (!equal(tok, ";")) {
-      if (i++) {
+      if (!first) {
         assert(equal(tok, ","));
         tok = tok->next;  // skip ","
       }
+      first = false;
 
       Member *mem = calloc(1, sizeof(Member));
       mem->ty = declarator(&tok, tok, basety);
       mem->name = mem->ty->name;
+      mem->idx = idx++;
       cur = cur->next = mem;
     }
 
@@ -970,7 +991,8 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
   return node;
 }
 
-// initializer = string-initializer | array-initializer | assign
+// initializer = string-initializer | array-initializer | struct-initializer
+//             | assign
 static Token *skip_excess_element(Token *tok) {
   if (equal(tok, "{")) {
     tok = skip_excess_element(tok->next);
@@ -992,6 +1014,11 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
     return;
   }
 
+  if (init->ty->kind == TY_STRUCT) {
+    struct_initializer(rest, tok, init);
+    return;
+  }
+
   init->expr = assign(rest, tok);
 }
 
@@ -1007,6 +1034,13 @@ static Node *init_desg_expr(InitDesg *desg, Token *tok) {
   if (desg->var) {
     Node *node = new_node(ND_VAR, NULL, NULL, tok);
     node->var = desg->var;
+    return node;
+  }
+
+  if (desg->member) {
+    Node *node =
+        new_node(ND_MEMBER, init_desg_expr(desg->next, tok), NULL, tok);
+    node->member = desg->member;
     return node;
   }
 
@@ -1030,6 +1064,17 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
     return node;
   }
 
+  if (ty->kind == TY_STRUCT) {
+    Node *node = new_node(ND_NULL_EXPR, NULL, NULL, tok);
+    for (Member *mem = ty->members; mem; mem = mem->next) {
+      InitDesg desg2 = {desg, 0, mem};
+      Node *rhs =
+          create_lvar_init(init->children[mem->idx], mem->ty, &desg2, tok);
+      node = new_node(ND_COMMA, node, rhs, tok);
+    }
+    return node;
+  }
+
   if (!init->expr) {
     return new_node(ND_NULL_EXPR, NULL, NULL, tok);
   }
@@ -1042,7 +1087,7 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
 
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   Initializer *init = initializer(rest, tok, var->ty, &var->ty);
-  InitDesg desg = {NULL, 0, var};
+  InitDesg desg = {NULL, 0, NULL, var};
 
   Node *lhs = new_node(ND_MEMZERO, NULL, NULL, tok);
   lhs->var = var;
@@ -1103,6 +1148,28 @@ static void string_initializer(Token **rest, Token *tok, Initializer *init) {
     init->children[i]->expr->val = tok->str[i];
   }
   *rest = tok->next;
+}
+
+// struct-initializer = "{" initializer ("," initializer)* "}"
+static void struct_initializer(Token **rest, Token *tok, Initializer *init) {
+  assert(equal(tok, "{"));
+  tok = tok->next;  // skip "{"
+
+  Member *mem = init->ty->members;
+  for (int i = 0; !equal(tok, "}"); i++) {
+    if (i > 0) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ","
+      mem = mem->next;
+    }
+
+    if (mem) {
+      initializer2(&tok, tok, init->children[mem->idx]);
+    } else {
+      tok = skip_excess_element(tok);
+    }
+  }
+  *rest = tok->next;  // skip "}"
 }
 
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
