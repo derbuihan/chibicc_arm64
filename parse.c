@@ -104,6 +104,8 @@ static void string_initializer(Token **rest, Token *tok, Initializer *init);
 
 static void struct_initializer(Token **rest, Token *tok, Initializer *init);
 
+static void union_initializer(Token **rest, Token *tok, Initializer *init);
+
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var);
 
 static Node *compound_stmt(Token **rest, Token *tok);
@@ -226,7 +228,7 @@ static Initializer *new_initializer(Type *ty, bool is_flexible) {
     return init;
   }
 
-  if (ty->kind == TY_STRUCT) {
+  if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
     int len = 0;
     for (Member *mem = ty->members; mem; mem = mem->next) {
       len++;
@@ -480,11 +482,13 @@ static bool is_typename(Token *tok) {
 // enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
 // declaration = (declarator ("=" initializer)?
 //               ("," declarator ("=" initializer)?)*)? ";"
-// initializer =  array-initializer | string-initializer | struct-initializer
+// initializer =  array-initializer | string-initializer
+//             | struct-initializer | union-initializer
 //             | assign
 // array-initializer = "{" initializer ("," initializer)* "}"
 // string-initializer = string-literal
 // struct-initializer = "{" initializer ("," initializer)* "}"
+// union-initializer = "{" initializer "}"
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -991,7 +995,8 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
   return node;
 }
 
-// initializer = string-initializer | array-initializer | struct-initializer
+// initializer =  array-initializer | string-initializer
+//             | struct-initializer | union-initializer
 //             | assign
 static Token *skip_excess_element(Token *tok) {
   if (equal(tok, "{")) {
@@ -1025,6 +1030,11 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
     }
 
     struct_initializer(rest, tok, init);
+    return;
+  }
+
+  if (init->ty->kind == TY_UNION) {
+    union_initializer(rest, tok, init);
     return;
   }
 
@@ -1082,6 +1092,11 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg,
       node = new_node(ND_COMMA, node, rhs, tok);
     }
     return node;
+  }
+
+  if (ty->kind == TY_UNION) {
+    InitDesg desg2 = {desg, 0, ty->members};
+    return create_lvar_init(init->children[0], ty->members->ty, &desg2, tok);
   }
 
   if (!init->expr) {
@@ -1178,6 +1193,15 @@ static void struct_initializer(Token **rest, Token *tok, Initializer *init) {
       tok = skip_excess_element(tok);
     }
   }
+  *rest = tok->next;  // skip "}"
+}
+
+// union-initializer = "{" initializer "}"
+static void union_initializer(Token **rest, Token *tok, Initializer *init) {
+  assert(equal(tok, "{"));
+  tok = tok->next;  // skip "{"
+  initializer2(&tok, tok, init->children[0]);
+  assert(equal(tok, "}"));
   *rest = tok->next;  // skip "}"
 }
 
