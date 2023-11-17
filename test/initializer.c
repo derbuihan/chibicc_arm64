@@ -1,5 +1,11 @@
 #include "test.h"
 
+char g3 = 3;
+short g4 = 4;
+int g5 = 5;
+long g6 = 6;
+int g7 = 0x80808080;
+
 int main() {
   ASSERT(1, ({
            int x[3] = {1, 2, 3};
@@ -277,6 +283,12 @@ int main() {
            } x = {{4, 3, 2, 1}};
            x.f;
          }));
+
+  ASSERT(3, g3);
+  ASSERT(4, g4);
+  ASSERT(5, g5);
+  ASSERT(6, g6);
+  ASSERT(0x80808080, g7);
 
   return 0;
 }

@@ -77,8 +77,8 @@ static void gen_addr(Node *node) {
         println("    add x0, x29, %d", node->var->offset);
       } else {
         // Global variable
-        println("    adrp x0, _%s@PAGE", node->var->name);
-        println("    add x0, x0, _%s@PAGEOFF", node->var->name);
+        println("    adrp x0, %s@PAGE", node->var->name);
+        println("    add x0, x0, %s@PAGEOFF", node->var->name);
       }
       return;
     case ND_DEREF:
@@ -496,9 +496,9 @@ static void emit_data(Obj *prog) {
     }
 
     println("    .data");
-    println("    .globl _%s", var->name);
+    println("    .globl %s", var->name);
     println("    .p2align 2");
-    println("_%s:", var->name);
+    println("%s:", var->name);
 
     if (var->init_data) {
       for (int i = 0; i < var->ty->size; i++) {

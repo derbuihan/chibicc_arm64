@@ -69,6 +69,8 @@ static Token *type_def(Token *tok, Type *basety);
 
 static Token *global_variable(Token *tok, Type *basety);
 
+static void gvar_initializer(Token **rest, Token *tok, Obj *var);
+
 static Token *function(Token *tok, Type *basety, VarAttr *attr);
 
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
@@ -115,6 +117,8 @@ static Node *stmt(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
 
 static Node *expr(Token **rest, Token *tok);
+
+static int64_t eval(Node *node);
 
 static Node *assign(Token **rest, Token *tok);
 
@@ -446,6 +450,34 @@ static Type *find_typedef(Token *tok) {
   return NULL;
 }
 
+static void write_buf(char *buf, uint64_t val, int sz) {
+  if (sz == 1) {
+    *buf = val;
+  } else if (sz == 2) {
+    *(uint16_t *)buf = val;
+  } else if (sz == 4) {
+    *(uint32_t *)buf = val;
+  } else if (sz == 8) {
+    *(uint64_t *)buf = val;
+  } else {
+    unreachable();
+  }
+}
+
+static void write_gvar_data(Initializer *init, Type *ty, char *buf,
+                            int offset) {
+  if (ty->kind == TY_ARRAY) {
+    int sz = ty->base->size;
+    for (int i = 0; i < ty->array_len; i++) {
+      write_gvar_data(init->children[i], ty->base, buf, offset + sz * i);
+    }
+    return;
+  }
+  if (init->expr) {
+    write_buf(buf + offset, eval(init->expr), ty->size);
+  }
+}
+
 static bool is_typename(Token *tok) {
   char *kw[] = {"void",   "_Bool", "char",    "short", "int",   "long",
                 "struct", "union", "typedef", "enum",  "static"};
@@ -459,7 +491,9 @@ static bool is_typename(Token *tok) {
 
 // program = (desclspec (type_def | global-variable | function))*
 // type_def = declarator ("," declarator)* ";"
-// global-variable = declarator ("," declarator)* ";"
+// global-variable = declarator ("=" gvar-initializer)?
+//                    ("," declarator ("=" gvar-initializer)?)* ";"
+// gvar-initializer = initializer
 // function = declarator (";" | "{" compound-stmt)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //            | "typedef" | "static" | typedef-name
@@ -556,7 +590,8 @@ Token *type_def(Token *tok, Type *basety) {
   return tok;
 }
 
-// global-variable = declarator ("," declarator)* ";"
+// global-variable = declarator ("=" gvar-initializer)?
+//                    ("," declarator ("=" gvar-initializer)?)* ";"
 Token *global_variable(Token *tok, Type *basety) {
   int count = 0;
   while (!equal(tok, ";")) {
@@ -565,12 +600,22 @@ Token *global_variable(Token *tok, Type *basety) {
       tok = tok->next;
     }
     Type *ty = declarator(&tok, tok, basety);
-    new_gvar(get_ident(ty->name), ty);
+    Obj *var = new_gvar(get_ident(ty->name), ty);
+    if (equal(tok, "=")) {
+      gvar_initializer(&tok, tok->next, var);
+    }
   }
-
   assert(equal(tok, ";"));
   tok = tok->next;  // skip ";"
   return tok;
+}
+
+// gvar-initializer = initializer
+static void gvar_initializer(Token **rest, Token *tok, Obj *var) {
+  Initializer *init = initializer(rest, tok, var->ty, &var->ty);
+  char *buf = calloc(1, var->ty->size);
+  write_gvar_data(init, var->ty, buf, 0);
+  var->init_data = buf;
 }
 
 // function = declarator (";" | "{" compound-stmt)
