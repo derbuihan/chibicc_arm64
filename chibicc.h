@@ -15,6 +15,7 @@
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Member Member;
+typedef struct Relocation Relocation;
 
 // strings
 
@@ -70,12 +71,21 @@ struct Obj {
 
   // Global variable
   char *init_data;
+  Relocation *rel;
 
   // Function
   Obj *params;
   Node *body;
   Obj *locals;
   int stack_size;
+};
+
+typedef struct Relocation Relocation;
+struct Relocation {
+  Relocation *next;
+  int offset;
+  Obj *label;
+  long addend;
 };
 
 typedef enum {
