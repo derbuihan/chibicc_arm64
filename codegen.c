@@ -495,12 +495,12 @@ static void emit_data(Obj *prog) {
       continue;
     }
 
-    println("    .data");
     println("    .globl %s", var->name);
-    println("    .p2align 2");
-    println("%s:", var->name);
-
     if (var->init_data) {
+      println("    .data");
+      println("    .p2align 2");
+      println("%s:", var->name);
+
       Relocation *rel = var->rel;
       int pos = 0;
       while (pos < var->ty->size) {
@@ -512,9 +512,9 @@ static void emit_data(Obj *prog) {
           println("    .byte %d", var->init_data[pos++]);
         }
       }
-    } else {
-      println("    .zero %d", var->ty->size);
+      continue;
     }
+    println("    .zerofill __DATA,__bss,%s,%d,2", var->name, var->ty->size);
   }
 }
 
