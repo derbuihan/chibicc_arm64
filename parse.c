@@ -1131,6 +1131,13 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
     return;
   }
 
+  if (equal(tok, "{")) {
+    initializer2(&tok, tok->next, init);
+    assert(equal(tok, "}"));
+    *rest = tok->next;  // skip "}"
+    return;
+  }
+
   init->expr = assign(rest, tok);
 }
 
