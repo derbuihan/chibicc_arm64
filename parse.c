@@ -56,11 +56,9 @@ static Scope *scope = &(Scope){};
 static Obj *current_fn;
 
 static Node *gotos;
-
 static Node *labels;
 
 static char *brk_label;
-
 static char *cont_label;
 
 static Node *current_switch;
@@ -247,7 +245,14 @@ static Initializer *new_initializer(Type *ty, bool is_flexible) {
     }
     init->children = calloc(len, sizeof(Initializer *));
     for (Member *mem = ty->members; mem; mem = mem->next) {
-      init->children[mem->idx] = new_initializer(mem->ty, false);
+      if (is_flexible && ty->is_flexible && !mem->next) {
+        Initializer *child = calloc(1, sizeof(Initializer));
+        child->ty = mem->ty;
+        child->is_flexible = true;
+        init->children[mem->idx] = child;
+      } else {
+        init->children[mem->idx] = new_initializer(mem->ty, false);
+      }
     }
     return init;
   }
@@ -733,7 +738,7 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
       } else {
         attr->is_static = true;
       }
-      if (attr->is_typedef && attr->is_static) {
+      if (attr->is_typedef + attr->is_static > 1) {
         error_tok(tok, "typedef and static may not be used together");
       }
       tok = tok->next;
@@ -860,7 +865,7 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
   while (!equal(tok, ")")) {
     if (cur != &head) {
       assert(equal(tok, ","));
-      tok = tok->next;
+      tok = tok->next;  /// skip ","
     }
     Type *ty2 = declspec(&tok, tok, NULL);
     ty2 = declarator(&tok, tok, ty2);
@@ -886,7 +891,7 @@ static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
   }
   int sz = const_expr(&tok, tok);
   assert(equal(tok, "]"));
-  *rest = tok = tok->next;  // skip "]"
+  tok = tok->next;  // skip "]"
   ty = type_suffix(rest, tok, ty);
   return array_of(ty, sz);
 }
@@ -1003,6 +1008,7 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
 
   if (cur != &head && cur->ty->kind == TY_ARRAY && cur->ty->array_len < 0) {
     cur->ty = array_of(cur->ty->base, 0);
+    ty->is_flexible = true;
   }
 
   assert(equal(tok, "}"));
@@ -1056,7 +1062,7 @@ static Type *enum_specifier(Token **rest, Token *tok) {
     sc->enum_ty = ty;
     sc->enum_val = val++;
   }
-  *rest = tok->next;  // skip "}"
+
   if (tag) {
     push_tag_scope(tag, ty);
   }
@@ -1073,11 +1079,11 @@ Node *declaration(Token **rest, Token *tok, Type *basety) {
   while (!equal(tok, ";")) {
     if (i++ > 0) {
       assert(equal(tok, ","));
-      *rest = tok = tok->next;  // skip ','
+      tok = tok->next;  // skip ','
     }
     Type *ty = declarator(&tok, tok, basety);
     if (ty->kind == TY_VOID) {
-      error_tok(ty->name, "variable declared void");
+      error_tok(tok, "variable declared void");
     }
 
     assert(ty->name->kind == TK_IDENT);
@@ -1163,10 +1169,40 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
   init->expr = assign(rest, tok);
 }
 
+static Type *copy_struct_type(Type *ty) {
+  ty = copy_type(ty);
+
+  Member head = {};
+  Member *cur = &head;
+  for (Member *mem = ty->members; mem; mem = mem->next) {
+    Member *m = calloc(1, sizeof(Member));
+    *m = *mem;
+    cur = cur->next = m;
+  }
+
+  ty->members = head.next;
+  return ty;
+}
+
 static Initializer *initializer(Token **rest, Token *tok, Type *ty,
                                 Type **new_ty) {
   Initializer *init = new_initializer(ty, true);
   initializer2(rest, tok, init);
+
+  if ((ty->kind == TY_STRUCT || ty->kind == TY_UNION) && ty->is_flexible) {
+    ty = copy_struct_type(ty);
+
+    Member *mem = ty->members;
+    while (mem->next) {
+      mem = mem->next;
+    }
+    mem->ty = init->children[mem->idx]->ty;
+    ty->size += mem->ty->size;
+
+    *new_ty = ty;
+    return init;
+  }
+
   *new_ty = init->ty;
   return init;
 }
