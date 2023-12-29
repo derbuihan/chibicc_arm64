@@ -1,6 +1,6 @@
 #include "test.h"
 
-int ret11() { return 11; }
+int ret11(void) { return 11; }
 int add11(int a) { return a + 11; }
 int add2(int a, int b) { return a + b; }
 int sub2(int a, int b) { return a - b; }
@@ -16,12 +16,12 @@ int fib(int x) {
   return fib(x - 1) + fib(x - 2);
 }
 int g1;
-int *g1_ptr() { return &g1; }
+int *g1_ptr(void) { return &g1; }
 char int_to_char(int x) { return x; }
 int div_long(long x, long y) { return x / y; }
 _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
-static int static_fn() { return 3; }
+static int static_fn(void) { return 3; }
 int param_decay(int x[]) { return x[0]; }
 
 int main() {

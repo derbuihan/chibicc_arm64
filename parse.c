@@ -562,7 +562,7 @@ static bool consume_end(Token **rest, Token *tok) {
 // type-suffix = "(" func-params
 //             | "[" array-dimensions
 //             | ε
-// func-params = (param ("," param)*)? ")"
+// func-params = ("void" | param ("," param)*)? ")"
 // param = declspec declarator
 // array-dimensions = const-expr? "]" type-suffix
 // struct-decl = ident? "{" struct-members
@@ -856,9 +856,14 @@ Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// func-params = (param ("," param)*)? ")"
+// func-params = ("void" | param ("," param)*)? ")"
 // param = declspec declarator
 Type *func_params(Token **rest, Token *tok, Type *ty) {
+  if (equal(tok, "void") && equal(tok->next, ")")) {
+    *rest = tok->next->next;
+    return func_type(ty);
+  }
+
   Type head = {};
   Type *cur = &head;
 
