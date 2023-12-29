@@ -1001,6 +1001,10 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
     tok = tok->next;  // skip ";"
   }
 
+  if (cur != &head && cur->ty->kind == TY_ARRAY && cur->ty->array_len < 0) {
+    cur->ty = array_of(cur->ty->base, 0);
+  }
+
   assert(equal(tok, "}"));
   *rest = tok->next;  // skip "}"
   ty->members = head.next;
