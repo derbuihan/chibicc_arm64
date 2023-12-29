@@ -512,7 +512,6 @@ static void emit_data(Obj *prog) {
           println("    .byte %d", var->init_data[pos++]);
         }
       }
-
     } else {
       println("    .zero %d", var->ty->size);
     }
