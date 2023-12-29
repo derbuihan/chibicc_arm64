@@ -527,6 +527,22 @@ static bool is_typename(Token *tok) {
   return find_typedef(tok);
 }
 
+static bool is_end(Token *tok) {
+  return equal(tok, "}") || (equal(tok, ",") && equal(tok->next, "}"));
+}
+
+static bool consume_end(Token **rest, Token *tok) {
+  if (equal(tok, "}")) {
+    *rest = tok->next;
+    return true;
+  }
+  if (equal(tok, ",") && equal(tok->next, "}")) {
+    *rest = tok->next->next;
+    return true;
+  }
+  return false;
+}
+
 // program = (desclspec (type_def | global-variable | function))*
 // type_def = declarator ("," declarator)* ";"
 // global-variable = declarator ("=" gvar-initializer)?
@@ -551,15 +567,17 @@ static bool is_typename(Token *tok) {
 // struct-members = (declspec declarator ("," declarator)* ";")* "}"
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
-// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
+// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)* ","?
 // declaration = (declarator ("=" initializer)?
 //               ("," declarator ("=" initializer)?)*)? ";"
 // initializer =  array-initializer | string-initializer
 //             | struct-initializer | union-initializer
 //             | assign
-// array-initializer = "{" initializer ("," initializer)* "}"
+// array-initializer1 = "{" initializer ("," initializer)* ","? "}"
+// array-initializer2 = initializer ("," initializer)*
 // string-initializer = string-literal
-// struct-initializer = "{" initializer ("," initializer)* "}"
+// struct-initializer1 = "{" initializer ("," initializer)* ","? "}"
+// struct-initializer2 = initializer ("," initializer)*
 // union-initializer = "{" initializer "}"
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
 // stmt = "return" expr ";"
@@ -990,7 +1008,7 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
 
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
-// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)*
+// enum-list = ident ("=" const-expr)? ("," ident ("=" const-expr)?)* ","?
 static Type *enum_specifier(Token **rest, Token *tok) {
   Type *ty = enum_type();
 
@@ -1017,7 +1035,7 @@ static Type *enum_specifier(Token **rest, Token *tok) {
 
   int i = 0;
   int val = 0;
-  while (!equal(tok, "}")) {
+  while (!consume_end(rest, tok)) {
     if (i++ > 0) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
@@ -1220,12 +1238,10 @@ static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   return new_node(ND_COMMA, lhs, rhs, tok);
 }
 
-// array-initializer = "{" initializer ("," initializer)* "}"
 static int count_array_init_elements(Token *tok, Type *ty) {
   Initializer *dummy = new_initializer(ty->base, false);
   int i = 0;
-
-  for (; !equal(tok, "}"); i++) {
+  for (; !consume_end(&tok, tok); i++) {
     if (i > 0) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
@@ -1235,7 +1251,7 @@ static int count_array_init_elements(Token *tok, Type *ty) {
   return i;
 }
 
-// array-initializer1 = "{" initializer ("," initializer)* "}"
+// array-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void array_initializer1(Token **rest, Token *tok, Initializer *init) {
   assert(equal(tok, "{"));
   tok = tok->next;  // skip "{"
@@ -1245,7 +1261,7 @@ static void array_initializer1(Token **rest, Token *tok, Initializer *init) {
     *init = *new_initializer(array_of(init->ty->base, len), false);
   }
 
-  for (int i = 0; !equal(tok, "}"); i++) {
+  for (int i = 0; !consume_end(rest, tok); i++) {
     if (i > 0) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
@@ -1256,17 +1272,16 @@ static void array_initializer1(Token **rest, Token *tok, Initializer *init) {
       tok = skip_excess_element(tok);
     }
   }
-  *rest = tok->next;  // skip "}"
 }
 
-// array-initializer1 = initializer ("," initializer)*
+// array-initializer2 = initializer ("," initializer)*
 static void array_initializer2(Token **rest, Token *tok, Initializer *init) {
   if (init->is_flexible) {
     int len = count_array_init_elements(tok, init->ty);
     *init = *new_initializer(array_of(init->ty->base, len), false);
   }
 
-  for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
+  for (int i = 0; i < init->ty->array_len && !is_end(tok); i++) {
     if (i > 0) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
@@ -1292,34 +1307,33 @@ static void string_initializer(Token **rest, Token *tok, Initializer *init) {
   *rest = tok->next;
 }
 
-// struct-initializer1 = "{" initializer ("," initializer)* "}"
+// struct-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void struct_initializer1(Token **rest, Token *tok, Initializer *init) {
   assert(equal(tok, "{"));
   tok = tok->next;  // skip "{"
 
   Member *mem = init->ty->members;
-  for (int i = 0; !equal(tok, "}"); i++) {
-    if (i > 0) {
+
+  while (!consume_end(rest, tok)) {
+    if (mem != init->ty->members) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
-      mem = mem->next;
     }
 
     if (mem) {
       initializer2(&tok, tok, init->children[mem->idx]);
+      mem = mem->next;
     } else {
       tok = skip_excess_element(tok);
     }
   }
-  *rest = tok->next;  // skip "}"
 }
 
 // struct-initializer2 = initializer ("," initializer)*
 static void struct_initializer2(Token **rest, Token *tok, Initializer *init) {
   bool first = true;
 
-  for (Member *mem = init->ty->members; mem && !equal(tok, "}");
-       mem = mem->next) {
+  for (Member *mem = init->ty->members; mem && !is_end(tok); mem = mem->next) {
     if (!first) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ","
@@ -1335,6 +1349,9 @@ static void struct_initializer2(Token **rest, Token *tok, Initializer *init) {
 static void union_initializer(Token **rest, Token *tok, Initializer *init) {
   if (equal(tok, "{")) {
     initializer2(&tok, tok->next, init->children[0]);
+    if (equal(tok, ",")) {
+      tok = tok->next;  // skip ","
+    }
     assert(equal(tok, "}"));
     *rest = tok->next;  // skip "}"
   } else {
