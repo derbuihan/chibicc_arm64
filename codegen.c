@@ -498,7 +498,7 @@ static void emit_data(Obj *prog) {
     println("    .globl %s", var->name);
     if (var->init_data) {
       println("    .data");
-      println("    .p2align 2");
+      println("    .p2align %d", var->ty->align);
       println("%s:", var->name);
 
       Relocation *rel = var->rel;
@@ -514,7 +514,8 @@ static void emit_data(Obj *prog) {
       }
       continue;
     }
-    println("    .zerofill __DATA,__bss,%s,%d,2", var->name, var->ty->size);
+    println("    .zerofill __DATA,__bss,%s,%d,%d", var->name, var->ty->size,
+            var->ty->align);
   }
 }
 
