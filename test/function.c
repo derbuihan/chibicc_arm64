@@ -24,6 +24,12 @@ _Bool bool_fn_sub(_Bool x) { return x - 1; }
 static int static_fn(void) { return 3; }
 int param_decay(int x[]) { return x[0]; }
 
+int counter() {
+  static int i;
+  static int j = 1 + 1;
+  return i++ + j++;
+}
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -59,6 +65,10 @@ int main() {
            x[0] = 3;
            param_decay(x);
          }));
+
+  ASSERT(2, counter());
+  ASSERT(4, counter());
+  ASSERT(6, counter());
 
   return 0;
 }
