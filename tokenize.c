@@ -186,10 +186,11 @@ static int read_punct(char *p) {
 
 static bool is_keyword(Token *tok) {
   static char *kw[] = {
-      "return",   "if",     "else",  "for",     "while",  "int",
-      "char",     "struct", "union", "short",   "long",   "void",
-      "typedef",  "_Bool",  "enum",  "static",  "goto",   "break",
-      "continue", "switch", "case",  "default", "extern",
+      "return", "if",      "else",    "for",      "while",
+      "int",    "char",    "struct",  "union",    "short",
+      "long",   "void",    "typedef", "_Bool",    "enum",
+      "static", "goto",    "break",   "continue", "switch",
+      "case",   "default", "extern",  "_Alignof", "_Alignas",
   };
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
