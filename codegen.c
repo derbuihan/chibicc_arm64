@@ -299,6 +299,17 @@ void gen_expr(Node *node) {
         pop(argreg64[i]);
       }
       println("    bl _%s", node->funcname);
+      switch (node->ty->kind) {
+        case TY_BOOL:
+          println("  uxtb w0, w0");
+          return;
+        case TY_CHAR:
+          println("  sxtb w0, w0");
+          return;
+        case TY_SHORT:
+          println("  sxth w0, w0");
+          return;
+      }
       return;
     }
     default:
