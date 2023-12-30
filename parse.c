@@ -591,7 +591,7 @@ static bool consume_end(Token **rest, Token *tok) {
 // struct-initializer2 = initializer ("," initializer)*
 // union-initializer = "{" initializer "}"
 // compound-stmt = (declspec (type_def | declaration) | stmt)* "}"
-// stmt = "return" expr ";"
+// stmt = "return" expr? ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "switch" "(" expr ")" stmt
 //      | "case" const-expr ":" stmt
@@ -1497,7 +1497,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
   return node;
 }
 
-// stmt = "return" expr ";"
+// stmt = "return" expr? ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "switch" "(" expr ")" stmt
 //      | "case" const-expr ":" stmt
@@ -1514,6 +1514,12 @@ Node *compound_stmt(Token **rest, Token *tok) {
 Node *stmt(Token **rest, Token *tok) {
   if (equal(tok, "return")) {
     Node *node = new_node(ND_RETURN, NULL, NULL, tok);
+
+    if (equal(tok->next, ";")) {
+      *rest = tok->next;  // skip ";"
+      return node;
+    }
+
     Node *exp = expr(&tok, tok->next);
     assert(equal(tok, ";"));
     *rest = tok->next;  // skip ";"

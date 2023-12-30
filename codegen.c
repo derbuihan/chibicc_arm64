@@ -471,7 +471,9 @@ void gen_stmt(Node *node) {
       return;
     case ND_RETURN: {
       println("; gen_stmt: ND_RETURN");
-      gen_expr(node->lhs);
+      if (node->lhs) {
+        gen_expr(node->lhs);
+      }
       println("    b .L.return.%s", current_fn->name);
       return;
     }

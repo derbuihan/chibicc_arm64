@@ -30,6 +30,8 @@ int counter() {
   return i++ + j++;
 }
 
+void ret_none() { return; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -69,6 +71,8 @@ int main() {
   ASSERT(2, counter());
   ASSERT(4, counter());
   ASSERT(6, counter());
+
+  ret_none();
 
   return 0;
 }
