@@ -631,6 +631,7 @@ static bool consume_end(Token **rest, Token *tok) {
 //         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
+//         | "_Alignof" unary
 //         | funcall
 //         | ident
 //         | str
@@ -2206,6 +2207,7 @@ Node *postfix(Token **rest, Token *tok) {
 //         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
+//         | "_Alignof" unary
 //         | funcall
 //         | ident
 //         | str
@@ -2252,16 +2254,22 @@ Node *primary(Token **rest, Token *tok) {
     return node;
   }
 
-  if (equal(tok, "_Alignof")) {
-    tok = tok->next;  // skip "_Alignof"
-    assert(equal(tok, "("));
-    tok = tok->next;  // skip "("
-    Type *ty = type_name(&tok, tok);
+  if (equal(tok, "_Alignof") && equal(tok->next, "(") &&
+      is_typename(tok->next->next)) {
+    Type *ty = type_name(&tok, tok->next->next);
     assert(equal(tok, ")"));
-    tok = tok->next;  // skip ")"
+    *rest = tok = tok->next;  // skip ")"
     Node *node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = ty->align;
-    *rest = tok;
+    return node;
+  }
+
+  if (equal(tok, "_Alignof")) {
+    tok = tok->next;  // skip "_Alignof"
+    Node *tmp = unary(rest, tok);
+    add_type(tmp);
+    Node *node = new_node(ND_NUM, NULL, NULL, tok);
+    node->val = tmp->ty->align;
     return node;
   }
 
