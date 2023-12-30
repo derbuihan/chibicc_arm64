@@ -626,7 +626,8 @@ static bool consume_end(Token **rest, Token *tok) {
 // unary = ("+" | "-" | "&" | "*" | "!" | "~")? cast
 //       | ("++" | "--") unary
 //       | postfix
-// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+// postfix = "(" type-name ")" "{" initializer-list "}"
+//         | primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" "(" type-name ")"
@@ -2119,6 +2120,12 @@ Node *cast(Token **rest, Token *tok) {
     assert(equal(tok, ")"));
     tok = tok->next;  // skip ")"
 
+    // compound literal
+    if (equal(tok, "{")) {
+      return unary(rest, start);
+    }
+
+    // type cast
     Node *lhs = cast(rest, tok);
     add_type(lhs);
     Node *node = new_cast(lhs, ty);
@@ -2189,8 +2196,32 @@ Node *unary(Token **rest, Token *tok) {
   return node;
 }
 
-// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+// postfix = "(" type-name ")" "{" initializer-list "}"
+//         | primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 Node *postfix(Token **rest, Token *tok) {
+  if (equal(tok, "(") && is_typename(tok->next)) {
+    // compound literal
+    Token *start = tok;
+    Type *ty = type_name(&tok, tok->next);
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ")"
+
+    if (scope->next == NULL) {
+      Obj *var = new_anon_gvar(ty);
+      gvar_initializer(rest, tok, var);
+
+      Node *node = new_node(ND_VAR, NULL, NULL, start);
+      node->var = var;
+      return node;
+    }
+
+    Obj *var = new_lvar("", ty);
+    Node *lhs = lvar_initializer(rest, tok, var);
+    Node *rhs = new_node(ND_VAR, NULL, NULL, start);
+    rhs->var = var;
+    return new_node(ND_COMMA, lhs, rhs, start);
+  }
+
   Node *node = primary(&tok, tok);
 
   for (;;) {
