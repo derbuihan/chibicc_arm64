@@ -598,6 +598,7 @@ static bool consume_end(Token **rest, Token *tok) {
 //      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "do" stmt "while" "(" expr ")" ";"
 //      | "goto" ident ";"
 //      | "break" ";"
 //      | "continue" ";"
@@ -1502,6 +1503,7 @@ Node *compound_stmt(Token **rest, Token *tok) {
 //      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ";" ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "do" stmt "while" "(" expr ")" ";"
 //      | "goto" ident ";"
 //      | "break" ";"
 //      | "continue" ";"
@@ -1650,6 +1652,36 @@ Node *stmt(Token **rest, Token *tok) {
     *rest = tok;
     brk_label = brk;
     cont_label = cont;
+    return node;
+  }
+
+  if (equal(tok, "do")) {
+    Node *node = new_node(ND_DO, NULL, NULL, tok);
+
+    char *brk = brk_label;
+    char *cont = cont_label;
+    brk_label = node->brk_label = new_unique_name();
+    cont_label = node->cont_label = new_unique_name();
+
+    tok = tok->next;  // skip "do"
+    node->then = stmt(&tok, tok);
+
+    brk_label = brk;
+    cont_label = cont;
+
+    assert(equal(tok, "while"));
+    tok = tok->next;  // skip "while"
+    assert(equal(tok, "("));
+    tok = tok->next;  // skip "("
+
+    node->cond = expr(&tok, tok);
+
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ")"
+    assert(equal(tok, ";"));
+    tok = tok->next;  // skip ";"
+
+    *rest = tok;
     return node;
   }
 
