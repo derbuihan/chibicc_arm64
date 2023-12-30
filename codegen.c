@@ -298,7 +298,13 @@ void gen_expr(Node *node) {
       for (int i = nargs - 1; i >= 0; i--) {
         pop(argreg64[i]);
       }
-      println("    bl _%s", node->funcname);
+      if (depth % 2 == 0) {
+        println("    bl _%s", node->funcname);
+      } else {
+        println("    sub sp, sp, 16");
+        println("    bl _%s", node->funcname);
+        println("    add sp, sp, 16");
+      }
       return;
     }
     default:
