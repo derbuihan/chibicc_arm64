@@ -446,7 +446,7 @@ static Node *struct_ref(Node *lhs, Token *tok) {
 }
 
 static bool is_function(Token *tok) {
-  if (equal(tok->next, ";")) {
+  if (equal(tok, ";")) {
     return false;
   }
 
@@ -1428,6 +1428,16 @@ Node *compound_stmt(Token **rest, Token *tok) {
 
       if (attr.is_typedef) {
         tok = type_def(tok, basety);
+        continue;
+      }
+
+      if (is_function(tok)) {
+        tok = function(tok, basety, &attr);
+        continue;
+      }
+
+      if (attr.is_extern) {
+        tok = global_variable(tok, basety, &attr);
         continue;
       }
 
