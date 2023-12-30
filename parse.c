@@ -27,6 +27,7 @@ struct Scope {
 typedef struct {
   bool is_typedef;
   bool is_static;
+  bool is_extern;
 } VarAttr;
 
 typedef struct Initializer Initializer;
@@ -65,7 +66,7 @@ static Node *current_switch;
 
 static Token *type_def(Token *tok, Type *basety);
 
-static Token *global_variable(Token *tok, Type *basety);
+static Token *global_variable(Token *tok, Type *basety, VarAttr *attr);
 
 static void gvar_initializer(Token **rest, Token *tok, Obj *var);
 
@@ -279,6 +280,7 @@ static Obj *new_lvar(char *name, Type *ty) {
 static Obj *new_gvar(char *name, Type *ty) {
   Obj *var = new_var(name, ty);
   var->next = globals;
+  var->is_definition = true;
   globals = var;
   return var;
 }
@@ -522,8 +524,10 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
 }
 
 static bool is_typename(Token *tok) {
-  char *kw[] = {"void",   "_Bool", "char",    "short", "int",   "long",
-                "struct", "union", "typedef", "enum",  "static"};
+  char *kw[] = {
+      "void",   "_Bool", "char",    "short", "int",    "long",
+      "struct", "union", "typedef", "enum",  "static", "extern",
+  };
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
       return true;
@@ -555,7 +559,7 @@ static bool consume_end(Token **rest, Token *tok) {
 // gvar-initializer = initializer
 // function = declarator (";" | "{" compound-stmt)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | "static" | typedef-name
+//            | "typedef" | "static" | "extern" | typedef-name
 //            | "struct" struct-decl | "union" union-decl
 //            | "enum" enum-specifier)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
@@ -653,7 +657,7 @@ Token *type_def(Token *tok, Type *basety) {
 
 // global-variable = declarator ("=" gvar-initializer)?
 //                    ("," declarator ("=" gvar-initializer)?)* ";"
-Token *global_variable(Token *tok, Type *basety) {
+Token *global_variable(Token *tok, Type *basety, VarAttr *attr) {
   int count = 0;
   while (!equal(tok, ";")) {
     if (count++ > 0) {
@@ -662,6 +666,7 @@ Token *global_variable(Token *tok, Type *basety) {
     }
     Type *ty = declarator(&tok, tok, basety);
     Obj *var = new_gvar(get_ident(ty->name), ty);
+    var->is_definition = !attr->is_extern;
     if (equal(tok, "=")) {
       gvar_initializer(&tok, tok->next, var);
     }
@@ -711,7 +716,7 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | "static" | typedef-name
+//            | "typedef" | "static" | "extern" | typedef-name
 //            | "struct" struct-decl | "union" union-decl
 //            | "enum" enum-specifier)+
 Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
@@ -728,18 +733,21 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   int counter = 0;
 
   while (is_typename(tok)) {
-    if (equal(tok, "typedef") || equal(tok, "static")) {
+    if (equal(tok, "typedef") || equal(tok, "static") || equal(tok, "extern")) {
       if (!attr) {
         error_tok(tok,
                   "storage class specifier is not allowed in this context");
       }
       if (equal(tok, "typedef")) {
         attr->is_typedef = true;
-      } else {
+      } else if (equal(tok, "static")) {
         attr->is_static = true;
+      } else {
+        attr->is_extern = true;
       }
-      if (attr->is_typedef + attr->is_static > 1) {
-        error_tok(tok, "typedef and static may not be used together");
+      if (attr->is_typedef && attr->is_static + attr->is_extern > 1) {
+        error_tok(tok,
+                  "typedef may not be used together with static or extern");
       }
       tok = tok->next;
       continue;
@@ -2354,7 +2362,7 @@ Obj *parse(Token *tok) {
 
     // global variable
     if (!is_function(tok)) {
-      tok = global_variable(tok, basety);
+      tok = global_variable(tok, basety, &attr);
       continue;
     }
 

@@ -77,8 +77,8 @@ static void gen_addr(Node *node) {
         println("    add x0, x29, %d", node->var->offset);
       } else {
         // Global variable
-        println("    adrp x0, %s@PAGE", node->var->name);
-        println("    add x0, x0, %s@PAGEOFF", node->var->name);
+        println("    adrp x0, _%s@PAGE", node->var->name);
+        println("    add x0, x0, _%s@PAGEOFF", node->var->name);
       }
       return;
     case ND_DEREF:
@@ -491,21 +491,21 @@ static void assign_lvar_offsets(Obj *prog) {
 
 static void emit_data(Obj *prog) {
   for (Obj *var = prog; var; var = var->next) {
-    if (var->is_function) {
+    if (var->is_function || !var->is_definition) {
       continue;
     }
 
-    println("    .globl %s", var->name);
+    println("    .globl _%s", var->name);
     if (var->init_data) {
       println("    .data");
       println("    .p2align %d", var->ty->align);
-      println("%s:", var->name);
+      println("_%s:", var->name);
 
       Relocation *rel = var->rel;
       int pos = 0;
       while (pos < var->ty->size) {
         if (rel && rel->offset == pos) {
-          println("    .quad %s%+ld", rel->label, rel->addend);
+          println("    .quad _%s%+ld", rel->label, rel->addend);
           rel = rel->next;
           pos += 8;
         } else {
@@ -514,7 +514,7 @@ static void emit_data(Obj *prog) {
       }
       continue;
     }
-    println("    .zerofill __DATA,__bss,%s,%d,%d", var->name, var->ty->size,
+    println("    .zerofill __DATA,__bss,_%s,%d,%d", var->name, var->ty->size,
             var->ty->align);
   }
 }
@@ -550,7 +550,7 @@ static void emit_text(Obj *prog) {
     println("_%s:", fn->name);
     current_fn = fn;
 
-    println("; prologue %s", fn->name);
+    println("; prologue _%s", fn->name);
     println("    stp x29, x30, [sp, -16]!");
     println("    mov x29, sp");
     println("    sub sp, sp, %d", fn->stack_size);
