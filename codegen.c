@@ -508,7 +508,10 @@ static void emit_data(Obj *prog) {
       continue;
     }
 
-    println("    .globl _%s", var->name);
+    if (!var->is_static) {
+      println("    .globl _%s", var->name);
+    }
+
     if (var->init_data) {
       println("    .data");
       println("    .p2align %d", var->align);
