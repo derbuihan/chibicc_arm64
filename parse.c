@@ -529,7 +529,7 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
 static bool is_typename(Token *tok) {
   char *kw[] = {
       "void",  "_Bool",   "char", "short",  "int",    "long",     "struct",
-      "union", "typedef", "enum", "static", "extern", "_Alignas",
+      "union", "typedef", "enum", "static", "extern", "_Alignas", "signed",
   };
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
@@ -562,9 +562,9 @@ static bool consume_end(Token **rest, Token *tok) {
 // gvar-initializer = initializer
 // function = declarator (";" | "{" compound-stmt)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | "static" | "extern" | typedef-name
-//            | "struct" struct-decl | "union" union-decl
-//            | "enum" enum-specifier)+ | "_Alignas" "(" type-name ")"
+//            | "typedef" | "static" | "extern" | "signed"
+//            | typedef-name | "struct" struct-decl | "union" union-decl
+//            | "enum" enum-specifier | "_Alignas" "(" type-name ")" )+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 // type-suffix = "(" func-params
 //             | "[" array-dimensions
@@ -727,9 +727,9 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//            | "typedef" | "static" | "extern" | typedef-name
-//            | "struct" struct-decl | "union" union-decl
-//            | "enum" enum-specifier)+ | "_Alignas" "(" type-name ")"
+//            | "typedef" | "static" | "extern" | "signed"
+//            | typedef-name | "struct" struct-decl | "union" union-decl
+//            | "enum" enum-specifier | "_Alignas" "(" type-name ")" )+
 Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   enum {
     VOID = 1 << 0,
@@ -739,6 +739,7 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
     INT = 1 << 8,
     LONG = 1 << 10,
     OTHER = 1 << 12,
+    SIGNED = 1 << 13,
   };
   Type *ty = ty_int;
   int counter = 0;
@@ -813,6 +814,8 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
       counter += INT;
     } else if (equal(tok, "long")) {
       counter += LONG;
+    } else if (equal(tok, "signed")) {
+      counter |= SIGNED;
     } else {
       unreachable();
     }
@@ -825,19 +828,28 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
         ty = ty_bool;
         break;
       case CHAR:
+      case SIGNED + CHAR:
         ty = ty_char;
         break;
       case SHORT:
       case SHORT + INT:
+      case SIGNED + SHORT:
+      case SIGNED + SHORT + INT:
         ty = ty_short;
         break;
       case INT:
+      case SIGNED:
+      case SIGNED + INT:
         ty = ty_int;
         break;
       case LONG:
       case LONG + INT:
       case LONG + LONG:
       case LONG + LONG + INT:
+      case SIGNED + LONG:
+      case SIGNED + LONG + INT:
+      case SIGNED + LONG + LONG:
+      case SIGNED + LONG + LONG + INT:
         ty = ty_long;
         break;
       default:
