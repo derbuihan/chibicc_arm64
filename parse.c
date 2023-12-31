@@ -569,7 +569,7 @@ static bool consume_end(Token **rest, Token *tok) {
 // type-suffix = "(" func-params
 //             | "[" array-dimensions
 //             | ε
-// func-params = ("void" | param ("," param)*?)? ")"
+// func-params = ("void" | param ("," param)* ("," "...")?)? ")"
 // param = declspec declarator
 // array-dimensions = const-expr? "]" type-suffix
 // struct-decl = ident? "{" struct-members
@@ -892,7 +892,7 @@ Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// func-params = ("void" | param ("," param)*?)? ")"
+// func-params = ("void" | param ("," param)* ("," "...")?)? ")"
 // param = declspec declarator
 Type *func_params(Token **rest, Token *tok, Type *ty) {
   if (equal(tok, "void") && equal(tok->next, ")")) {
@@ -902,12 +902,20 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
 
   Type head = {};
   Type *cur = &head;
+  bool is_variadic = false;
 
   while (!equal(tok, ")")) {
     if (cur != &head) {
       assert(equal(tok, ","));
       tok = tok->next;  /// skip ","
     }
+
+    if (equal(tok, "...")) {
+      tok = tok->next;  // skip "..."
+      is_variadic = true;
+      break;
+    }
+
     Type *ty2 = declspec(&tok, tok, NULL);
     ty2 = declarator(&tok, tok, ty2);
     if (ty2->kind == TY_ARRAY) {
@@ -920,6 +928,7 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
 
   ty = func_type(ty);
   ty->params = head.next;
+  ty->is_variadic = is_variadic;
   *rest = tok->next;  // skip ")"
   return ty;
 }

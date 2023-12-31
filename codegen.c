@@ -74,7 +74,7 @@ static void gen_addr(Node *node) {
       println("; gen_addr: ND_VAR");
       if (node->var->is_local) {
         // Local variable
-        println("    add x0, x29, %d", node->var->offset);
+        println("    add x0, fp, %d", node->var->offset);
       } else {
         // Global variable
         println("    adrp x0, _%s@PAGE", node->var->name);
@@ -221,7 +221,7 @@ void gen_expr(Node *node) {
       println("; gen_expr: ND_MEMZERO");
       int c = count++;
       println("    mov x1, %d", node->var->ty->size);
-      println("    add x0, x29, %d", node->var->offset);
+      println("    add x0, fp, %d", node->var->offset);
       println(".L.loop.%d:", c);
       println("    cmp x1, 0");
       println("    beq .L.end.%d", c);
@@ -298,6 +298,21 @@ void gen_expr(Node *node) {
       for (int i = nargs - 1; i >= 0; i--) {
         pop(argreg64[i]);
       }
+
+      // varargs
+      int const_param_num = 0;
+      for (Type *param = node->func_ty->params; param; param = param->next) {
+        const_param_num++;
+      }
+      if (node->func_ty->is_variadic) {
+        int variadic_param_num = nargs - const_param_num;
+        println("    sub sp, sp, %d", align_to(8 * variadic_param_num, 16));
+        for (int i = 0; i < variadic_param_num; i++) {
+          int varreg = i + const_param_num;
+          println("    str %s, [sp, %d]", argreg64[varreg], 8 * i);
+        }
+      }
+
       println("    bl _%s", node->funcname);
       switch (node->ty->kind) {
         case TY_BOOL:
@@ -309,6 +324,12 @@ void gen_expr(Node *node) {
         case TY_SHORT:
           println("  sxth w0, w0");
           return;
+      }
+
+      // varargs
+      if (node->func_ty->is_variadic) {
+        int variadic_param_num = nargs - const_param_num;
+        println("    add sp, sp, %d", align_to(8 * variadic_param_num, 16));
       }
       return;
     }
@@ -549,16 +570,16 @@ static void emit_data(Obj *prog) {
 static void store_gp(int r, int offset, int sz) {
   switch (sz) {
     case 1:
-      println("    strb %s, [x29, %d]", argreg32[r], offset);
+      println("    strb %s, [fp, %d]", argreg32[r], offset);
       return;
     case 2:
-      println("    strh %s, [x29, %d]", argreg32[r], offset);
+      println("    strh %s, [fp, %d]", argreg32[r], offset);
       return;
     case 4:
-      println("    str %s, [x29, %d]", argreg32[r], offset);
+      println("    str %s, [fp, %d]", argreg32[r], offset);
       return;
     case 8:
-      println("    str %s, [x29, %d]", argreg64[r], offset);
+      println("    str %s, [fp, %d]", argreg64[r], offset);
       return;
   }
   unreachable();
@@ -578,8 +599,8 @@ static void emit_text(Obj *prog) {
     current_fn = fn;
 
     println("; prologue _%s", fn->name);
-    println("    stp x29, x30, [sp, -16]!");
-    println("    mov x29, sp");
+    println("    stp fp, lr, [sp, -16]!");
+    println("    mov fp, sp");
     println("    sub sp, sp, %d", fn->stack_size);
 
     int i = 0;
@@ -592,8 +613,8 @@ static void emit_text(Obj *prog) {
 
     println("; epilogue %s", fn->name);
     println(".L.return.%s:", fn->name);
-    println("    mov sp, x29");
-    println("    ldp x29, x30, [sp], 16");
+    println("    mov sp, fp");
+    println("    ldp fp, lr, [sp], 16");
     println("    ret");
   }
 }
