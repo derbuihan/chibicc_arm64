@@ -289,28 +289,37 @@ void gen_expr(Node *node) {
     }
     case ND_FUNCALL: {
       println("; gen_expr: ND_FUNCALL");
+      int const_nargs = 0;
+      for (Type *param = node->func_ty->params; param; param = param->next) {
+        const_nargs++;
+      }
+
       int nargs = 0;
+      for (Node *arg = node->args; arg; arg = arg->next) {
+        nargs++;
+      }
+
+      int variadic_nargs = nargs - const_nargs;
+      int stack_args_size = align_to(8 * variadic_nargs, 16);
+
+      // variadic function
+      println("    sub sp, sp, %d", stack_args_size);
+
+      int stack_args_offset = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
         gen_expr(arg);
         push();
-        nargs++;
-      }
-      for (int i = nargs - 1; i >= 0; i--) {
-        pop(argreg64[i]);
+        stack_args_offset += 16;
       }
 
-      // varargs
-      int const_param_num = 0;
-      for (Type *param = node->func_ty->params; param; param = param->next) {
-        const_param_num++;
+      for (int i = variadic_nargs - 1; i >= 0; i--) {
+        pop("x0");
+        stack_args_offset -= 16;
+        println("    str x0, [sp, %d]", stack_args_offset + 8 * i);
       }
-      if (node->func_ty->is_variadic) {
-        int variadic_param_num = nargs - const_param_num;
-        println("    sub sp, sp, %d", align_to(8 * variadic_param_num, 16));
-        for (int i = 0; i < variadic_param_num; i++) {
-          int varreg = i + const_param_num;
-          println("    str %s, [sp, %d]", argreg64[varreg], 8 * i);
-        }
+
+      for (int i = const_nargs - 1; i >= 0; i--) {
+        pop(argreg64[i]);
       }
 
       println("    bl _%s", node->funcname);
@@ -326,11 +335,8 @@ void gen_expr(Node *node) {
           return;
       }
 
-      // varargs
-      if (node->func_ty->is_variadic) {
-        int variadic_param_num = nargs - const_param_num;
-        println("    add sp, sp, %d", align_to(8 * variadic_param_num, 16));
-      }
+      // variadic function
+      println("    add sp, sp, %d", stack_args_size);
       return;
     }
     default:
