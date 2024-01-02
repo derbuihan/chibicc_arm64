@@ -33,10 +33,12 @@ static void load(Type *ty) {
   if (ty->kind == TY_ARRAY || ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
     return;
   }
+  char *insn = ty->is_unsigned ? "ldr" : "ldrs";
+
   if (ty->size == 1) {
-    println("    ldrsb w0, [x0]");
+    println("    %sb w0, [x0]", insn);
   } else if (ty->size == 2) {
-    println("    ldrsh w0, [x0]");
+    println("    %sh w0, [x0]", insn);
   } else if (ty->size == 4) {
     println("    ldr w0, [x0]");
   } else {
@@ -106,29 +108,39 @@ static void cmp_zero(Type *ty) {
   }
 }
 
-static enum { I8, I16, I32, I64 };
+static enum { I8, I16, I32, I64, U8, U16, U32, U64 };
 
 static int getTypeId(Type *ty) {
   switch (ty->kind) {
     case TY_CHAR:
-      return I8;
+      return ty->is_unsigned ? U8 : I8;
     case TY_SHORT:
-      return I16;
+      return ty->is_unsigned ? U16 : I16;
     case TY_INT:
-      return I32;
+      return ty->is_unsigned ? U32 : I32;
+    case TY_LONG:
+      return ty->is_unsigned ? U64 : I64;
   }
-  return I64;
+  return U64;
 }
 
 static char i32i8[] = "sxtb w0, w0";
+static char i32u8[] = "uxtb w0, w0";
 static char i32i16[] = "sxth w0, w0";
+static char i32u16[] = "uxth w0, w0";
 static char i32i64[] = "sxtw x0, w0";
+static char u32i64[] = "uxtw x0, w0";
 
-static char *cast_table[][4] = {
-    {NULL, NULL, NULL, i32i64},
-    {i32i8, NULL, NULL, i32i64},
-    {i32i8, i32i16, NULL, i32i64},
-    {i32i8, i32i16, NULL, NULL},
+static char *cast_table[][10] = {
+    // i8, i16, i32, i64, u8, u16, u32, u64
+    {NULL, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64},     // i8
+    {i32i8, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64},    // i16
+    {i32i8, i32i16, NULL, i32i64, i32u8, i32u16, NULL, i32i64},  // i32
+    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL},      // i64
+    {i32i8, NULL, NULL, i32i64, NULL, NULL, NULL, i32i64},       // u8
+    {i32i8, i32i16, NULL, i32i64, i32u8, NULL, NULL, i32i64},    // u16
+    {i32i8, i32i16, NULL, u32i64, i32u8, i32u16, NULL, u32i64},  // u32
+    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL},      // u64
 };
 
 static void cast(Type *from, Type *to) {
@@ -328,10 +340,18 @@ void gen_expr(Node *node) {
           println("  uxtb w0, w0");
           return;
         case TY_CHAR:
-          println("  sxtb w0, w0");
+          if (node->ty->is_unsigned) {
+            println("  uxtb w0, w0");
+          } else {
+            println("  sxtb w0, w0");
+          }
           return;
         case TY_SHORT:
-          println("  sxth w0, w0");
+          if (node->ty->is_unsigned) {
+            println("  uxth w0, w0");
+          } else {
+            println("  sxth w0, w0");
+          }
           return;
       }
 
@@ -374,11 +394,19 @@ void gen_expr(Node *node) {
       return;
     case ND_DIV:
       println("; gen_expr: ND_DIV");
-      println("    sdiv %s, %s, %s", r0, r0, r1);
+      if (node->lhs->ty->is_unsigned) {
+        println("    udiv %s, %s, %s", r0, r0, r1);
+      } else {
+        println("    sdiv %s, %s, %s", r0, r0, r1);
+      }
       return;
     case ND_MOD:
       println("; gen_expr: ND_MOD");
-      println("    sdiv %s, %s, %s", r9, r0, r1);
+      if (node->lhs->ty->is_unsigned) {
+        println("    udiv %s, %s, %s", r9, r0, r1);
+      } else {
+        println("    sdiv %s, %s, %s", r9, r0, r1);
+      }
       println("    msub %s, %s, %s, %s", r0, r9, r1, r0);
       return;
     case ND_BITAND:
@@ -404,9 +432,17 @@ void gen_expr(Node *node) {
       } else if (node->kind == ND_NE) {
         println("    cset %s, NE", r0);
       } else if (node->kind == ND_LT) {
-        println("    cset %s, LT", r0);
+        if (node->lhs->ty->is_unsigned) {
+          println("    cset %s, LO", r0);
+        } else {
+          println("    cset %s, LT", r0);
+        }
       } else if (node->kind == ND_LE) {
-        println("    cset %s, LE", r0);
+        if (node->lhs->ty->is_unsigned) {
+          println("    cset %s, LS", r0);
+        } else {
+          println("    cset %s, LE", r0);
+        }
       }
       return;
     case ND_SHL:
@@ -415,7 +451,11 @@ void gen_expr(Node *node) {
       return;
     case ND_SHR:
       println("; gen_expr: ND_SHR");
-      println("    asr %s, %s, %s", r0, r0, r1);
+      if (node->lhs->ty->is_unsigned) {
+        println("    lsr %s, %s, %s", r0, r0, r1);
+      } else {
+        println("    asr %s, %s, %s", r0, r0, r1);
+      }
       return;
     default:
       break;

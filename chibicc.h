@@ -205,9 +205,10 @@ typedef enum {
 } TypeKind;
 
 struct Type {
-  TypeKind kind;  // Type kind
-  int size;       // sizeof() value
-  int align;      // alignment
+  TypeKind kind;     // Type kind
+  int size;          // sizeof() value
+  int align;         // alignment
+  bool is_unsigned;  // unsigned or signed
 
   // Pointer
   Type *base;
@@ -240,16 +241,17 @@ struct Member {
 };
 
 extern Type *ty_void;
-
 extern Type *ty_bool;
 
 extern Type *ty_char;
-
 extern Type *ty_short;
-
 extern Type *ty_int;
-
 extern Type *ty_long;
+
+extern Type *ty_uchar;
+extern Type *ty_ushort;
+extern Type *ty_uint;
+extern Type *ty_ulong;
 
 bool is_integer(Type *ty);
 
