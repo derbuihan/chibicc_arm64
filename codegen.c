@@ -76,7 +76,8 @@ static void gen_addr(Node *node) {
       println("; gen_addr: ND_VAR");
       if (node->var->is_local) {
         // Local variable
-        println("    add x0, fp, %d", node->var->offset);
+        println("    mov x17, %d", node->var->offset);
+        println("    add x0, fp, x17");
       } else {
         // Global variable
         println("    adrp x0, _%s@PAGE", node->var->name);
@@ -233,7 +234,8 @@ void gen_expr(Node *node) {
       println("; gen_expr: ND_MEMZERO");
       int c = count++;
       println("    mov x1, %d", node->var->ty->size);
-      println("    add x0, fp, %d", node->var->offset);
+      println("    mov x17, %d", node->var->offset);
+      println("    add x0, fp, x17");
       println(".L.loop.%d:", c);
       println("    cmp x1, 0");
       println("    beq .L.end.%d", c);
@@ -647,7 +649,8 @@ static void emit_text(Obj *prog) {
     println("; prologue _%s", fn->name);
     println("    stp fp, lr, [sp, -16]!");
     println("    mov fp, sp");
-    println("    sub sp, sp, %d", fn->stack_size);
+    println("    mov x17, %d", fn->stack_size);
+    println("    sub sp, sp, x17");
 
     int i = 0;
     for (Obj *var = fn->params; var; var = var->next) {
