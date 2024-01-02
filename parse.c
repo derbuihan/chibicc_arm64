@@ -2539,6 +2539,7 @@ Node *funcall(Token **rest, Token *tok) {
 Node *num(Token **rest, Token *tok) {
   Node *node = new_node(ND_NUM, NULL, NULL, tok);
   node->val = tok->val;
+  node->ty = tok->ty;
 
   *rest = tok->next;
   return node;

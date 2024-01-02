@@ -34,14 +34,14 @@ typedef enum {
 
 typedef struct Token Token;
 struct Token {
-  TokenKind kind;
-  Token *next;
-  int64_t val;
-  char *loc;
-  int len;
-  Type *ty;
-  char *str;
-  int line_no;
+  TokenKind kind;  // Token kind
+  Token *next;     // Next token
+  int64_t val;     // If kind is TK_NUM, its value
+  char *loc;       // Token location
+  int len;         // Token length
+  Type *ty;        // Used if TK_NUM or TK_STR
+  char *str;       // String literal contents including terminating '\0'
+  int line_no;     // Line number
 };
 
 void error(char *fmt, ...);
