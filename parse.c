@@ -383,9 +383,11 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
 
   // ptr - ptr = num
   if (lhs->ty->base && rhs->ty->base) {
-    Node *num_node = new_node(ND_NUM, NULL, NULL, tok);
-    num_node->val = lhs->ty->base->size;
-    return new_node(ND_DIV, new_node(ND_SUB, lhs, rhs, tok), num_node, tok);
+    Node *lhs2 = new_node(ND_SUB, lhs, rhs, tok);
+    lhs2->ty = ty_long;
+    Node *rhs2 = new_node(ND_NUM, NULL, NULL, tok);
+    rhs2->val = lhs->ty->base->size;
+    return new_node(ND_DIV, lhs2, rhs2, tok);
   }
 
   error_tok(tok, "invalid operands");
@@ -2344,7 +2346,6 @@ Node *primary(Token **rest, Token *tok) {
     Node *node = new_node(ND_STMT_EXPR, NULL, NULL, tok);
     node->body = compound_stmt(&tok, tok->next->next)->body;
     *rest = tok;
-
     assert(equal(tok, ")"));
     *rest = tok->next;  // skip ")"
     return node;
@@ -2366,6 +2367,7 @@ Node *primary(Token **rest, Token *tok) {
     tok = tok->next;  // skip ")"
     Node *node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = ty->size;
+    node->ty = ty_ulong;
     *rest = tok;
     return node;
   }
@@ -2376,6 +2378,7 @@ Node *primary(Token **rest, Token *tok) {
     add_type(tmp);
     Node *node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = tmp->ty->size;
+    node->ty = ty_ulong;
     *rest = tok;
     return node;
   }
@@ -2387,6 +2390,7 @@ Node *primary(Token **rest, Token *tok) {
     *rest = tok = tok->next;  // skip ")"
     Node *node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = ty->align;
+    node->ty = ty_ulong;
     return node;
   }
 
@@ -2396,6 +2400,7 @@ Node *primary(Token **rest, Token *tok) {
     add_type(tmp);
     Node *node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = tmp->ty->align;
+    node->ty = ty_ulong;
     return node;
   }
 
