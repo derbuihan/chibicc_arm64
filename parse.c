@@ -77,6 +77,8 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
 
 static Type *declarator(Token **rest, Token *tok, Type *ty);
 
+static Type *pointers(Token **rest, Token *tok, Type *ty);
+
 static Type *type_suffix(Token **rest, Token *tok, Type *ty);
 
 static Type *func_params(Token **rest, Token *tok, Type *ty);
@@ -530,9 +532,11 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
 
 static bool is_typename(Token *tok) {
   char *kw[] = {
-      "void",   "_Bool",  "char",     "short",   "int",
-      "long",   "struct", "union",    "typedef", "enum",
-      "static", "extern", "_Alignas", "signed",  "unsigned",
+      "void",       "_Bool",        "char",      "short",    "int",
+      "long",       "struct",       "union",     "typedef",  "enum",
+      "static",     "extern",       "_Alignas",  "signed",   "unsigned",
+      "const",      "volatile",     "auto",      "register", "restrict",
+      "__restrict", "__restrict__", "_Noreturn",
   };
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     if (equal(tok, kw[i])) {
@@ -567,8 +571,12 @@ static bool consume_end(Token **rest, Token *tok) {
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //            | "typedef" | "static" | "extern" | "signed" | "unsigned"
 //            | typedef-name | "struct" struct-decl | "union" union-decl
-//            | "enum" enum-specifier | "_Alignas" "(" type-name ")" )+
-// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
+//            | "enum" enum-specifier | "_Alignas" "(" type-name ")"
+//            | "const" | "volatile" | "auto" | "register" | "restrict"
+//            | "__restrict" | "__restrict__" | "_Noreturn")+
+// declarator = pointers ("(" ident ")" | "(" declarator ")" | ident)
+//              type-suffix
+// pointers = ("*" ("const" | "volatile" | "restrict")* )*
 // type-suffix = "(" func-params
 //             | "[" array-dimensions
 //             | ε
@@ -732,7 +740,9 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //            | "typedef" | "static" | "extern" | "signed" | "unsigned"
 //            | typedef-name | "struct" struct-decl | "union" union-decl
-//            | "enum" enum-specifier | "_Alignas" "(" type-name ")" )+
+//            | "enum" enum-specifier | "_Alignas" "(" type-name ")"
+//            | "const" | "volatile" | "auto" | "register" | "restrict"
+//            | "__restrict" | "__restrict__" | "_Noreturn")+
 Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   enum {
     VOID = 1 << 0,
@@ -765,6 +775,14 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
         error_tok(tok,
                   "typedef may not be used together with static or extern");
       }
+      tok = tok->next;
+      continue;
+    }
+
+    if (equal(tok, "const") || equal(tok, "volatile") || equal(tok, "auto") ||
+        equal(tok, "register") || equal(tok, "restrict") ||
+        equal(tok, "__restrict") || equal(tok, "__restrict__") ||
+        equal(tok, "_Noreturn")) {
       tok = tok->next;
       continue;
     }
@@ -885,12 +903,10 @@ Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   return ty;
 }
 
-// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
+// declarator = pointers ("(" ident ")" | "(" declarator ")" | ident)
+//              type-suffix
 Type *declarator(Token **rest, Token *tok, Type *ty) {
-  while (equal(tok, "*")) {
-    ty = pointer_to(ty);
-    *rest = tok = tok->next;
-  }
+  ty = pointers(&tok, tok, ty);
 
   if (equal(tok, "(")) {
     Token *start = tok;
@@ -908,6 +924,21 @@ Type *declarator(Token **rest, Token *tok, Type *ty) {
 
   ty = type_suffix(rest, tok->next, ty);
   ty->name = tok;
+  return ty;
+}
+
+// pointers = ("*" ("const" | "volatile" | "restrict")* )*
+Type *pointers(Token **rest, Token *tok, Type *ty) {
+  while (equal(tok, "*")) {
+    tok = tok->next;  // skip "*"
+    ty = pointer_to(ty);
+    while (equal(tok, "const") || equal(tok, "volatile") ||
+           equal(tok, "restrict") || equal(tok, "__restrict") ||
+           equal(tok, "__restrict__")) {
+      tok = tok->next;  // skip "const", "volatile", "restrict" or "__restrict"
+    }
+  }
+  *rest = tok;
   return ty;
 }
 
@@ -2458,10 +2489,7 @@ Type *type_name(Token **rest, Token *tok) {
 
 // abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
 Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
-  while (equal(tok, "*")) {
-    ty = pointer_to(ty);
-    tok = tok->next;
-  }
+  ty = pointers(&tok, tok, ty);
 
   if (equal(tok, "(")) {
     Token *start = tok;
