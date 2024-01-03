@@ -1,6 +1,7 @@
 #include "test.h"
 
 _Noreturn noreturn_fn(int restrict x) { exit(0); }
+void funcy_type(int arg[restrict static 3]) {}
 
 int main() {
   { volatile x; }
