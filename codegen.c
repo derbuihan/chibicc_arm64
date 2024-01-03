@@ -166,26 +166,29 @@ void gen_expr(Node *node) {
       return;
     case ND_NUM:
       println("; gen_expr: ND_NUM");
-      if (node->val > 281474976710655) {
-        println("    mov x0, %d", node->val & 0xFFFF);
-        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
-        println("    movk x0, %d, lsl #32", (node->val & 0xFFFF00000000) >> 32);
-        println("    movk x0, %d, lsl #48",
-                (node->val & 0xFFFF000000000000) >> 48);
-        return;
+
+      int64_t val;
+      if (node->ty->kind == TY_FLOAT || node->ty->kind == TY_DOUBLE) {
+        double d = node->fval;
+        val = *(int64_t *)&d;
+      } else {
+        val = node->val;
       }
-      if (node->val > 4294967295) {
-        println("    mov x0, %d", node->val & 0xFFFF);
-        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
-        println("    movk x0, %d, lsl #32", (node->val & 0xFFFF00000000) >> 32);
-        return;
+
+      println("    mov x0, %#x", val & 0xFFFF);
+      for (int i = 1; i < 4; i++) {
+        uint16_t v = (val >> 16 * i) & 0xFFFF;
+        if (v) {
+          println("    movk x0, %#x, lsl #%d", v, 16 * i);
+        }
       }
-      if (node->val > 65535) {
-        println("    mov x0, %d", node->val & 0xFFFF);
-        println("    movk x0, %d, lsl #16", (node->val & 0xFFFF0000) >> 16);
-        return;
+
+      if (node->ty->kind == TY_FLOAT) {
+        println("    fmov s0, w0");
+      } else if (node->ty->kind == TY_DOUBLE) {
+        println("    fmov d0, x0");
       }
-      println("    mov x0, %d", node->val);
+
       return;
     case ND_NEG:
       println("; gen_expr: ND_NEG");
