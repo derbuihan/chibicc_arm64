@@ -30,9 +30,19 @@ static void pop(char *arg) {
 }
 
 static void load(Type *ty) {
-  if (ty->kind == TY_ARRAY || ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
-    return;
+  switch (ty->kind) {
+    case TY_ARRAY:
+    case TY_STRUCT:
+    case TY_UNION:
+      return;
+    case TY_FLOAT:
+      println("    ldr s0, [sp]");
+      return;
+    case TY_DOUBLE:
+      println("    ldr d0, [sp]");
+      return;
   }
+
   char *insn = ty->is_unsigned ? "ldr" : "ldrs";
 
   if (ty->size == 1) {
@@ -49,12 +59,20 @@ static void load(Type *ty) {
 static void store(Type *ty) {
   pop("x1");
 
-  if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
-    for (int i = 0; i < ty->size; i++) {
-      println("    ldrb w8, [x0, %d]", i);
-      println("    strb w8, [x1, %d]", i);
-    }
-    return;
+  switch (ty->kind) {
+    case TY_STRUCT:
+    case TY_UNION:
+      for (int i = 0; i < ty->size; i++) {
+        println("    ldrb w8, [x0, %d]", i);
+        println("    strb w8, [x1, %d]", i);
+      }
+      return;
+    case TY_FLOAT:
+      println("    str s0, [x1]");
+      return;
+    case TY_DOUBLE:
+      println("    str d0, [x1]");
+      return;
   }
 
   if (ty->size == 1) {
@@ -109,7 +127,7 @@ static void cmp_zero(Type *ty) {
   }
 }
 
-static enum { I8, I16, I32, I64, U8, U16, U32, U64 };
+static enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
 
 static int getTypeId(Type *ty) {
   switch (ty->kind) {
@@ -121,6 +139,10 @@ static int getTypeId(Type *ty) {
       return ty->is_unsigned ? U32 : I32;
     case TY_LONG:
       return ty->is_unsigned ? U64 : I64;
+    case TY_FLOAT:
+      return F32;
+    case TY_DOUBLE:
+      return F64;
   }
   return U64;
 }
@@ -129,19 +151,64 @@ static char i32i8[] = "sxtb w0, w0";
 static char i32u8[] = "uxtb w0, w0";
 static char i32i16[] = "sxth w0, w0";
 static char i32u16[] = "uxth w0, w0";
+static char i32f32[] = "scvtf s0, w0";
 static char i32i64[] = "sxtw x0, w0";
+static char i32f64[] = "scvtf d0, w0";
+
+static char u32f32[] = "ucvtf s0, w0";
 static char u32i64[] = "uxtw x0, w0";
+static char u32f64[] = "ucvtf d0, w0";
+
+static char i64f32[] = "scvtf s0, x0";
+static char i64f64[] = "scvtf d0, x0";
+
+static char u64f32[] = "ucvtf s0, x0";
+static char u64f64[] = "ucvtf d0, x0";
+
+static char f32i8[] = "fcvtzs w0, s0\n    sxtb w0, w0";
+static char f32u8[] = "fcvtzs w0, s0\n    uxtb w0, w0";
+static char f32i16[] = "fcvtzs w0, s0\n    sxth w0, w0";
+static char f32u16[] = "fcvtzs w0, s0\n    uxth w0, w0";
+static char f32i32[] = "fcvtzs w0, s0";
+static char f32u32[] = "fcvtzs w0, s0";
+static char f32i64[] = "fcvtzs x0, s0";
+static char f32u64[] = "fcvtzs x0, s0";
+static char f32f64[] = "fcvt d0, s0";
+
+static char f64i8[] = "fcvtzs w0, d0\n    sxtb w0, w0";
+static char f64u8[] = "fcvtzs w0, d0\n    uxtb w0, w0";
+static char f64i16[] = "fcvtzs w0, d0\n    sxth w0, w0";
+static char f64u16[] = "fcvtzs w0, d0\n    uxth w0, w0";
+static char f64i32[] = "fcvtzs w0, d0";
+static char f64u32[] = "fcvtzs w0, d0";
+static char f64f32[] = "fcvt s0, d0\n    fcvtzs w0, s0";
+static char f64i64[] = "fcvtzs x0, d0";
+static char f64u64[] = "fcvtzs x0, d0";
 
 static char *cast_table[][10] = {
-    // i8, i16, i32, i64, u8, u16, u32, u64
-    {NULL, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64},     // i8
-    {i32i8, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64},    // i16
-    {i32i8, i32i16, NULL, i32i64, i32u8, i32u16, NULL, i32i64},  // i32
-    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL},      // i64
-    {i32i8, NULL, NULL, i32i64, NULL, NULL, NULL, i32i64},       // u8
-    {i32i8, i32i16, NULL, i32i64, i32u8, NULL, NULL, i32i64},    // u16
-    {i32i8, i32i16, NULL, u32i64, i32u8, i32u16, NULL, u32i64},  // u32
-    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL},      // u64
+    // i8   i16     i32     i64     u8     u16     u32     u64     f32     f64
+    {NULL, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64, i32f32,
+     i32f64},  // i8
+    {i32i8, NULL, NULL, i32i64, i32u8, i32u16, NULL, i32i64, i32f32,
+     i32f64},  // i16
+    {i32i8, i32i16, NULL, i32i64, i32u8, i32u16, NULL, i32i64, i32f32,
+     i32f64},  // i32
+    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL, i64f32,
+     i64f64},  // i64
+
+    {i32i8, NULL, NULL, i32i64, NULL, NULL, NULL, i32i64, i32f32,
+     i32f64},  // u8
+    {i32i8, i32i16, NULL, i32i64, i32u8, NULL, NULL, i32i64, i32f32,
+     i32f64},  // u16
+    {i32i8, i32i16, NULL, u32i64, i32u8, i32u16, NULL, u32i64, u32f32,
+     u32f64},  // u32
+    {i32i8, i32i16, NULL, NULL, i32u8, i32u16, NULL, NULL, u64f32,
+     u64f64},  // u64
+
+    {f32i8, f32i16, f32i32, f32i64, f32u8, f32u16, f32u32, f32u64, NULL,
+     f32f64},  // f32
+    {f64i8, f64i16, f64i32, f64i64, f64u8, f64u16, f64u32, f64u64, f64f32,
+     NULL},  // f64
 };
 
 static void cast(Type *from, Type *to) {
@@ -235,18 +302,11 @@ void gen_expr(Node *node) {
       return;
     case ND_MEMZERO: {
       println("; gen_expr: ND_MEMZERO");
-      int c = count++;
-      println("    mov x1, %d", node->var->ty->size);
       println("    mov x17, %d", node->var->offset);
       println("    add x0, fp, x17");
-      println(".L.loop.%d:", c);
-      println("    cmp x1, 0");
-      println("    beq .L.end.%d", c);
-      println("    strb wzr, [x0]");
-      println("    add x0, x0, 1");
-      println("    sub x1, x1, 1");
-      println("    b .L.loop.%d", c);
-      println(".L.end.%d:", c);
+      println("    mov x1, 0");
+      println("    mov x2, %d", node->var->ty->size);
+      println("    bl _memset");
       return;
     }
     case ND_COND: {
