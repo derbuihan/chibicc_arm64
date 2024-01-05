@@ -345,7 +345,7 @@ static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   add_type(rhs);
 
   // num + num
-  if (is_integer(lhs->ty) && is_integer(rhs->ty)) {
+  if (is_numeric(lhs->ty) && is_numeric(rhs->ty)) {
     return new_node(ND_ADD, lhs, rhs, tok);
   }
 
@@ -374,7 +374,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   add_type(rhs);
 
   // num - num
-  if (is_integer(lhs->ty) && is_integer(rhs->ty)) {
+  if (is_numeric(lhs->ty) && is_numeric(rhs->ty)) {
     return new_node(ND_SUB, lhs, rhs, tok);
   }
 

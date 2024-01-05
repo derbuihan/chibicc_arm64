@@ -287,6 +287,16 @@ void gen_expr(Node *node) {
     case ND_NEG:
       println("; gen_expr: ND_NEG");
       gen_expr(node->lhs);
+
+      switch (node->ty->kind) {
+        case TY_FLOAT:
+          println("    fneg s0, s0");
+          return;
+        case TY_DOUBLE:
+          println("    fneg d0, d0");
+          return;
+      }
+
       println("    neg x0, x0");
       return;
     case ND_VAR:
@@ -460,17 +470,39 @@ void gen_expr(Node *node) {
     pushf();
     gen_expr(node->lhs);
     popf("d1");
+
+    char *r0, *r1;
+    if (node->lhs->ty->kind == TY_FLOAT) {
+      r0 = "s0";
+      r1 = "s1";
+    } else {
+      r0 = "d0";
+      r1 = "d1";
+    }
+
     switch (node->kind) {
+      case ND_ADD:
+        println("; gen_expr: ND_ADD");
+        println("    fadd %s, %s, %s", r0, r0, r1);
+        return;
+      case ND_SUB:
+        println("; gen_expr: ND_SUB");
+        println("    fsub %s, %s, %s", r0, r0, r1);
+        return;
+      case ND_MUL:
+        println("; gen_expr: ND_MUL");
+        println("    fmul %s, %s, %s", r0, r0, r1);
+        return;
+      case ND_DIV:
+        println("; gen_expr: ND_DIV");
+        println("    fdiv %s, %s, %s", r0, r0, r1);
+        return;
       case ND_EQ:
       case ND_NE:
       case ND_LT:
       case ND_LE:
         println("; gen_expr: ND_EQ, ND_NE, ND_LT, ND_LE");
-        if (node->lhs->ty->kind == TY_FLOAT) {
-          println("    fcmp s0, s1");
-        } else {
-          println("    fcmp d0, d1");
-        }
+        println("    fcmp %s, %s", r0, r1);
         if (node->kind == ND_EQ) {
           println("    cset w0, EQ");
         } else if (node->kind == ND_NE) {
