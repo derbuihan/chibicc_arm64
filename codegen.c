@@ -130,10 +130,19 @@ static void gen_addr(Node *node) {
 }
 
 static void cmp_zero(Type *ty) {
+  switch (ty->kind) {
+    case TY_FLOAT:
+      println("    fcmp s0, 0.0");
+      return;
+    case TY_DOUBLE:
+      println("    fcmp d0, 0.0");
+      return;
+  }
+
   if (is_integer(ty) && ty->size <= 4) {
-    println("    cmp w0, #0");
+    println("    cmp w0, 0");
   } else {
-    println("    cmp x0, #0");
+    println("    cmp x0, 0");
   }
 }
 
@@ -350,7 +359,8 @@ void gen_expr(Node *node) {
       println("; gen_expr: ND_COND");
       int c = count++;
       gen_expr(node->cond);
-      println("    cbz x0, .L.else.%d", c);
+      cmp_zero(node->cond->ty);
+      println("    beq .L.else.%d", c);
       gen_expr(node->then);
       println("    b .L.end.%d", c);
       println(".L.else.%d:", c);
@@ -361,7 +371,7 @@ void gen_expr(Node *node) {
     case ND_NOT:
       println("; gen_expr: ND_NOT");
       gen_expr(node->lhs);
-      println("    cmp x0, 0");
+      cmp_zero(node->lhs->ty);
       println("    cset x0, EQ");
       return;
     case ND_BITNOT:
@@ -373,10 +383,10 @@ void gen_expr(Node *node) {
       println("; gen_expr: ND_LOGAND");
       int c = count++;
       gen_expr(node->lhs);
-      println("    cmp x0, 0");
+      cmp_zero(node->lhs->ty);
       println("    beq .L.false.%d", c);
       gen_expr(node->rhs);
-      println("    cmp x0, 0");
+      cmp_zero(node->rhs->ty);
       println("    beq .L.false.%d", c);
       println("    mov x0, 1");
       println("    b .L.end.%d", c);
@@ -389,10 +399,10 @@ void gen_expr(Node *node) {
       println("; gen_expr: ND_LOGOR");
       int c = count++;
       gen_expr(node->lhs);
-      println("    cmp x0, 0");
+      cmp_zero(node->lhs->ty);
       println("    bne .L.true.%d", c);
       gen_expr(node->rhs);
-      println("    cmp x0, 0");
+      cmp_zero(node->rhs->ty);
       println("    bne .L.true.%d", c);
       println("    mov x0, 0");
       println("    b .L.end.%d", c);
@@ -625,7 +635,8 @@ void gen_stmt(Node *node) {
       println("; gen_stmt: ND_IF");
       int c = count++;
       gen_expr(node->cond);
-      println("    cbz x0, .L.else.%d", c);
+      cmp_zero(node->cond->ty);
+      println("    beq .L.else.%d", c);
       gen_stmt(node->then);
       println("    b .L.end.%d", c);
       println(".L.else.%d:", c);
@@ -644,7 +655,8 @@ void gen_stmt(Node *node) {
       println(".L.begin.%d:", c);
       if (node->cond) {
         gen_expr(node->cond);
-        println("    cbz x0, %s", node->brk_label);
+        cmp_zero(node->cond->ty);
+        println("    beq %s", node->brk_label);
       }
       gen_stmt(node->then);
       println("%s:", node->cont_label);
@@ -662,7 +674,8 @@ void gen_stmt(Node *node) {
       gen_stmt(node->then);
       println("%s:", node->cont_label);
       gen_expr(node->cond);
-      println("    cbnz x0, .L.begin.%d", c);
+      cmp_zero(node->cond->ty);
+      println("    bne .L.begin.%d", c);
       println("%s:", node->brk_label);
       return;
     }
