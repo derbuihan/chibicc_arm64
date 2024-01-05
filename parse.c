@@ -392,6 +392,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
     lhs2->ty = ty_long;
     Node *rhs2 = new_node(ND_NUM, NULL, NULL, tok);
     rhs2->val = lhs->ty->base->size;
+    rhs2->ty = ty_long;
     return new_node(ND_DIV, lhs2, rhs2, tok);
   }
 
@@ -430,6 +431,7 @@ static Node *new_inc_dec(Node *node, Token *tok, int addend) {
   add_type(node);
   Node *num = new_node(ND_NUM, NULL, NULL, tok);
   num->val = addend;
+  num->ty = ty_int;
   return new_cast(new_sub(to_assign(new_add(node, num, tok)), num, tok),
                   node->ty);
 }
@@ -1396,6 +1398,7 @@ static Node *init_desg_expr(InitDesg *desg, Token *tok) {
   Node *lhs = init_desg_expr(desg->next, tok);
   Node *rhs = new_node(ND_NUM, NULL, NULL, tok);
   rhs->val = desg->idx;
+  rhs->ty = ty_int;
 
   Node *node = new_node(ND_DEREF, new_add(lhs, rhs, tok), NULL, tok);
   return node;
@@ -1515,6 +1518,7 @@ static void string_initializer(Token **rest, Token *tok, Initializer *init) {
   for (int i = 0; i < len; i++) {
     init->children[i]->expr = new_node(ND_NUM, NULL, NULL, tok);
     init->children[i]->expr->val = tok->str[i];
+    init->children[i]->expr->ty = init->children[i]->ty;
   }
   *rest = tok->next;
 }
@@ -2311,6 +2315,7 @@ Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "++")) {
     Node *one = new_node(ND_NUM, NULL, NULL, tok);
     one->val = 1;
+    one->ty = ty_int;
     Node *node = to_assign(new_add(unary(&tok, tok->next), one, tok));
     *rest = tok;
     return node;
@@ -2319,6 +2324,7 @@ Node *unary(Token **rest, Token *tok) {
   if (equal(tok, "--")) {
     Node *one = new_node(ND_NUM, NULL, NULL, tok);
     one->val = 1;
+    one->ty = ty_int;
     Node *node = to_assign(new_sub(unary(&tok, tok->next), one, tok));
     *rest = tok;
     return node;
@@ -2556,6 +2562,7 @@ Node *ident(Token **rest, Token *tok) {
   } else {
     node = new_node(ND_NUM, NULL, NULL, tok);
     node->val = sc->enum_val;
+    node->ty = ty_int;
   }
 
   *rest = tok->next;

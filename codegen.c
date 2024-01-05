@@ -29,6 +29,16 @@ static void pop(char *arg) {
   depth--;
 }
 
+static void pushf(void) {
+  println("    str d0, [sp, -16]!");  // push
+  depth++;
+}
+
+static void popf(char *arg) {
+  println("    ldr %s, [sp], 16", arg);  // pop
+  depth--;
+}
+
 static void load(Type *ty) {
   switch (ty->kind) {
     case TY_ARRAY:
@@ -170,9 +180,9 @@ static char f32u8[] = "fcvtzs w0, s0\n    uxtb w0, w0";
 static char f32i16[] = "fcvtzs w0, s0\n    sxth w0, w0";
 static char f32u16[] = "fcvtzs w0, s0\n    uxth w0, w0";
 static char f32i32[] = "fcvtzs w0, s0";
-static char f32u32[] = "fcvtzs w0, s0";
+static char f32u32[] = "fcvtzu w0, s0";
 static char f32i64[] = "fcvtzs x0, s0";
-static char f32u64[] = "fcvtzs x0, s0";
+static char f32u64[] = "fcvtzu x0, s0";
 static char f32f64[] = "fcvt d0, s0";
 
 static char f64i8[] = "fcvtzs w0, d0\n    sxtb w0, w0";
@@ -180,10 +190,10 @@ static char f64u8[] = "fcvtzs w0, d0\n    uxtb w0, w0";
 static char f64i16[] = "fcvtzs w0, d0\n    sxth w0, w0";
 static char f64u16[] = "fcvtzs w0, d0\n    uxth w0, w0";
 static char f64i32[] = "fcvtzs w0, d0";
-static char f64u32[] = "fcvtzs w0, d0";
+static char f64u32[] = "fcvtzu w0, d0";
 static char f64f32[] = "fcvt s0, d0\n    fcvtzs w0, s0";
 static char f64i64[] = "fcvtzs x0, d0";
-static char f64u64[] = "fcvtzs x0, d0";
+static char f64u64[] = "fcvtzu x0, d0";
 
 static char *cast_table[][10] = {
     // i8   i16     i32     i64     u8     u16     u32     u64     f32     f64
@@ -233,30 +243,47 @@ void gen_expr(Node *node) {
       return;
     case ND_NUM:
       println("; gen_expr: ND_NUM");
-
-      int64_t val;
-      if (node->ty->kind == TY_FLOAT || node->ty->kind == TY_DOUBLE) {
+      if (node->ty->kind == TY_DOUBLE) {
         double d = node->fval;
-        val = *(int64_t *)&d;
-      } else {
-        val = node->val;
-      }
-
-      println("    mov x0, %#x", val & 0xFFFF);
-      for (int i = 1; i < 4; i++) {
-        uint16_t v = (val >> 16 * i) & 0xFFFF;
-        if (v) {
-          println("    movk x0, %#x, lsl #%d", v, 16 * i);
+        int64_t val = *(int64_t *)&d;
+        println("    mov x0, %#x", val & 0xFFFF);
+        for (int i = 1; i < 4; i++) {
+          uint16_t v = (val >> 16 * i) & 0xFFFF;
+          if (v) {
+            println("    movk x0, %#x, lsl #%d", v, 16 * i);
+          }
         }
-      }
-
-      if (node->ty->kind == TY_FLOAT) {
-        println("    fmov s0, w0");
-      } else if (node->ty->kind == TY_DOUBLE) {
         println("    fmov d0, x0");
+        return;
+      } else if (node->ty->kind == TY_FLOAT) {
+        float f = node->fval;
+        int32_t val = *(int32_t *)&f;
+        println("    mov w0, %#x", val & 0xFFFF);
+        uint16_t v = (val >> 16) & 0xFFFF;
+        if (v) {
+          println("    movk w0, %#x, lsl #16", v);
+        }
+        println("    fmov s0, w0");
+        return;
+      } else if (node->ty->kind == TY_LONG) {
+        int64_t val = node->val;
+        println("    mov x0, %#x", val & 0xFFFF);
+        for (int i = 1; i < 4; i++) {
+          uint16_t v = (val >> 16 * i) & 0xFFFF;
+          if (v) {
+            println("    movk x0, %#x, lsl #%d", v, 16 * i);
+          }
+        }
+        return;
+      } else {
+        int32_t val = node->val;
+        println("    mov w0, %#x", val & 0xFFFF);
+        uint16_t v = (val >> 16) & 0xFFFF;
+        if (v) {
+          println("    movk w0, %#x, lsl #16", v);
+        }
+        return;
       }
-
-      return;
     case ND_NEG:
       println("; gen_expr: ND_NEG");
       gen_expr(node->lhs);
@@ -426,6 +453,37 @@ void gen_expr(Node *node) {
     }
     default:
       break;
+  }
+
+  if (is_flonum(node->lhs->ty)) {
+    gen_expr(node->rhs);
+    pushf();
+    gen_expr(node->lhs);
+    popf("d1");
+    switch (node->kind) {
+      case ND_EQ:
+      case ND_NE:
+      case ND_LT:
+      case ND_LE:
+        println("; gen_expr: ND_EQ, ND_NE, ND_LT, ND_LE");
+        if (node->lhs->ty->kind == TY_FLOAT) {
+          println("    fcmp s0, s1");
+        } else {
+          println("    fcmp d0, d1");
+        }
+        if (node->kind == ND_EQ) {
+          println("    cset w0, EQ");
+        } else if (node->kind == ND_NE) {
+          println("    cset w0, NE");
+        } else if (node->kind == ND_LT) {
+          println("    cset w0, LT");
+        } else if (node->kind == ND_LE) {
+          println("    cset w0, LE");
+        }
+        return;
+    }
+
+    error_tok(node->tok, "invalid expression");
   }
 
   gen_expr(node->rhs);
