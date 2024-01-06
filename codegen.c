@@ -48,10 +48,10 @@ static void load(Type *ty) {
     case TY_UNION:
       return;
     case TY_FLOAT:
-      println("    ldr s0, [sp]");
+      println("    ldr s0, [x0]");
       return;
     case TY_DOUBLE:
-      println("    ldr d0, [sp]");
+      println("    ldr d0, [x0]");
       return;
   }
 
@@ -274,7 +274,7 @@ void gen_expr(Node *node) {
         for (int i = 1; i < 4; i++) {
           uint16_t v = (val >> 16 * i) & 0xFFFF;
           if (v) {
-            println("    movk x0, %#x, lsl #%d", v, 16 * i);
+            println("    movk x0, %#x, lsl %d", v, 16 * i);
           }
         }
         println("    fmov d0, x0");
@@ -285,7 +285,7 @@ void gen_expr(Node *node) {
         println("    mov w0, %#x", val & 0xFFFF);
         uint16_t v = (val >> 16) & 0xFFFF;
         if (v) {
-          println("    movk w0, %#x, lsl #16", v);
+          println("    movk w0, %#x, lsl 16", v);
         }
         println("    fmov s0, w0");
         return;
@@ -295,7 +295,7 @@ void gen_expr(Node *node) {
         for (int i = 1; i < 4; i++) {
           uint16_t v = (val >> 16 * i) & 0xFFFF;
           if (v) {
-            println("    movk x0, %#x, lsl #%d", v, 16 * i);
+            println("    movk x0, %#x, lsl %d", v, 16 * i);
           }
         }
         return;
@@ -304,7 +304,7 @@ void gen_expr(Node *node) {
         println("    mov w0, %#x", val & 0xFFFF);
         uint16_t v = (val >> 16) & 0xFFFF;
         if (v) {
-          println("    movk w0, %#x, lsl #16", v);
+          println("    movk w0, %#x, lsl 16", v);
         }
         return;
       }
@@ -777,6 +777,18 @@ static void emit_data(Obj *prog) {
   }
 }
 
+static void store_fp(int r, int offset, int sz) {
+  switch (sz) {
+    case 4:
+      println("    str %s, [fp, %d]", argregf32[r], offset);
+      return;
+    case 8:
+      println("    str %s, [fp, %d]", argregf64[r], offset);
+      return;
+  }
+  unreachable();
+}
+
 static void store_gp(int r, int offset, int sz) {
   switch (sz) {
     case 1:
@@ -814,9 +826,13 @@ static void emit_text(Obj *prog) {
     println("    mov x17, %d", fn->stack_size);
     println("    sub sp, sp, x17");
 
-    int i = 0;
+    int gp = 0, fp = 0;
     for (Obj *var = fn->params; var; var = var->next) {
-      store_gp(i++, var->offset, var->ty->size);
+      if (is_flonum(var->ty)) {
+        store_fp(fp++, var->offset, var->ty->size);
+      } else {
+        store_gp(gp++, var->offset, var->ty->size);
+      }
     }
 
     gen_stmt(fn->body);

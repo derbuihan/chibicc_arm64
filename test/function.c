@@ -15,6 +15,10 @@ int fib(int x) {
   if (x <= 1) return 1;
   return fib(x - 1) + fib(x - 2);
 }
+int gcd(int x, int y) {
+  if (y == 0) return x;
+  return gcd(y, x % y);
+}
 int g1;
 int *g1_ptr(void) { return &g1; }
 char int_to_char(int x) { return x; }
@@ -48,6 +52,9 @@ int add_all(int n, ...);
 float add_float(float a, float b);
 double add_double(double a, double b);
 
+float add_float3(float x, float y, float z) { return x + y + z; }
+double add_double3(double x, double y, double z) { return x + y + z; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -58,7 +65,9 @@ int main() {
   ASSERT(44, add2(11 + ret11(), 22));
   ASSERT(44, add2(11, 22 + ret11()));
   ASSERT(55, fib(9));
+  ASSERT(3, gcd(21, 30));
   ASSERT(1, ({ sub_char(7, 3, 3); }));
+  ASSERT(2, ({ sub_char(7, 2, 3); }));
   ASSERT(1, ({ sub_short(7, 3, 3); }));
   ASSERT(1, ({ sub_long(7, 3, 3); }));
 
@@ -108,6 +117,9 @@ int main() {
 
   ASSERT(6, add_float(2.3, 3.8));
   ASSERT(6, add_double(2.3, 3.8));
+
+  ASSERT(7, add_float3(2.5, 2.5, 2.5));
+  ASSERT(7, add_double3(2.5, 2.5, 2.5));
 
   return 0;
 }
