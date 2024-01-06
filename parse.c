@@ -134,6 +134,8 @@ static Node *assign(Token **rest, Token *tok);
 
 static int64_t const_expr(Token **rest, Token *tok);
 
+static double eval_double(Node *node);
+
 static Node *conditional(Token **rest, Token *tok);
 
 static Node *logor(Token **rest, Token *tok);
@@ -516,6 +518,16 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
   }
 
   if (!init->expr) {
+    return cur;
+  }
+
+  if (ty->kind == TY_FLOAT) {
+    *(float *)(buf + offset) = eval_double(init->expr);
+    return cur;
+  }
+
+  if (ty->kind == TY_DOUBLE) {
+    *(double *)(buf + offset) = eval_double(init->expr);
     return cur;
   }
 
@@ -1953,6 +1965,11 @@ static int64_t eval(Node *node) { return eval2(node, NULL); }
 
 static int64_t eval2(Node *node, char **label) {
   add_type(node);
+
+  if (is_flonum(node->ty)) {
+    return eval_double(node);
+  }
+
   switch (node->kind) {
     case ND_ADD:
       return eval2(node->lhs, label) + eval(node->rhs);
@@ -2072,6 +2089,43 @@ int64_t const_expr(Token **rest, Token *tok) {
   Node *node = conditional(&tok, tok);
   *rest = tok;
   return eval(node);
+}
+
+double eval_double(Node *node) {
+  add_type(node);
+
+  if (is_integer(node->ty)) {
+    if (node->ty->is_unsigned) {
+      return (unsigned long)eval(node);
+    }
+    return eval(node);
+  }
+
+  switch (node->kind) {
+    case ND_ADD:
+      return eval_double(node->lhs) + eval_double(node->rhs);
+    case ND_SUB:
+      return eval_double(node->lhs) - eval_double(node->rhs);
+    case ND_MUL:
+      return eval_double(node->lhs) * eval_double(node->rhs);
+    case ND_DIV:
+      return eval_double(node->lhs) / eval_double(node->rhs);
+    case ND_NEG:
+      return -eval_double(node->lhs);
+    case ND_COND:
+      return eval(node->cond) ? eval_double(node->then)
+                              : eval_double(node->els);
+    case ND_COMMA:
+      return eval_double(node->rhs);
+    case ND_CAST:
+      if (is_flonum(node->ty)) {
+        return eval_double(node->lhs);
+      }
+      return eval(node->lhs);
+    case ND_NUM:
+      return node->fval;
+  }
+  error_tok(node->tok, "not a compile-time constant");
 }
 
 // conditional = logor ("?" expr ":" conditional)?
