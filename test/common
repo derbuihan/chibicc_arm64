@@ -37,3 +37,6 @@ int add_all(int n, ...) {
   va_end(ap);
   return sum;
 }
+
+float add_float(float a, float b) { return a + b; }
+double add_double(double a, double b) { return a + b; }

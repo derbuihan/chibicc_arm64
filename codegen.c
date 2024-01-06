@@ -5,6 +5,8 @@ static int depth = 0;
 static int count = 1;
 static char *argreg32[] = {"w0", "w1", "w2", "w3", "w4", "w5", "w6", "w7"};
 static char *argreg64[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
+static char *argregf32[] = {"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"};
+static char *argregf64[] = {"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"};
 
 static Obj *current_fn;
 
@@ -245,6 +247,19 @@ static void cast(Type *from, Type *to) {
   }
 }
 
+static void push_args(Node *args) {
+  if (args) {
+    push_args(args->next);
+    gen_expr(args);
+
+    if (is_flonum(args->ty)) {
+      pushf();
+    } else {
+      push();
+    }
+  }
+}
+
 void gen_expr(Node *node) {
   switch (node->kind) {
     case ND_NULL_EXPR:
@@ -413,37 +428,20 @@ void gen_expr(Node *node) {
     }
     case ND_FUNCALL: {
       println("; gen_expr: ND_FUNCALL");
+      push_args(node->args);
+
       int const_nargs = 0;
       for (Type *param = node->func_ty->params; param; param = param->next) {
         const_nargs++;
       }
 
-      int nargs = 0;
+      int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
-        nargs++;
-      }
-
-      int variadic_nargs = nargs - const_nargs;
-      int stack_args_size = align_to(8 * variadic_nargs, 16);
-
-      // variadic function
-      println("    sub sp, sp, %d", stack_args_size);
-
-      int stack_args_offset = 0;
-      for (Node *arg = node->args; arg; arg = arg->next) {
-        gen_expr(arg);
-        push();
-        stack_args_offset += 16;
-      }
-
-      for (int i = variadic_nargs - 1; i >= 0; i--) {
-        pop("x0");
-        stack_args_offset -= 16;
-        println("    str x0, [sp, %d]", stack_args_offset + 8 * i);
-      }
-
-      for (int i = const_nargs - 1; i >= 0; i--) {
-        pop(argreg64[i]);
+        if (is_flonum(arg->ty)) {
+          popf(argregf64[fp++]);
+        } else {
+          pop(argreg64[gp++]);
+        }
       }
 
       println("    bl _%s", node->funcname);
@@ -467,8 +465,6 @@ void gen_expr(Node *node) {
           return;
       }
 
-      // variadic function
-      println("    add sp, sp, %d", stack_args_size);
       return;
     }
     default:
