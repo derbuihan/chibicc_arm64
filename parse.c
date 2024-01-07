@@ -755,6 +755,9 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
   enter_scope();
   create_param_lvars(ty->params);
   fn->params = locals;
+  if (ty->is_variadic) {
+    fn->va_area = new_lvar("__va_area__", ty_void);
+  }
 
   assert(equal(tok, "{"));
   fn->body = compound_stmt(&tok, tok->next);
@@ -1709,7 +1712,7 @@ Node *stmt(Token **rest, Token *tok) {
     }
     tok = tok->next;  // skip "case"
 
-    assert(tok->kind == TK_NUM);
+    // assert(tok->kind == TK_NUM);
     int val = const_expr(&tok, tok);
     Node *node = new_node(ND_CASE, NULL, NULL, tok);
 

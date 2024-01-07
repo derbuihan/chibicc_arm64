@@ -110,8 +110,19 @@ static void gen_addr(Node *node) {
         println("    add x0, fp, x17");
       } else {
         // Global variable
-        println("    adrp x0, _%s@PAGE", node->var->name);
-        println("    add x0, x0, _%s@PAGEOFF", node->var->name);
+        if (strcmp(node->var->name, "__stdoutp") == 0) {
+          println("    adrp x0, ___stdoutp@GOTPAGE");
+          println("    ldr x0, [x0, ___stdoutp@GOTPAGEOFF]");
+        } else if (strcmp(node->var->name, "__stdinp") == 0) {
+          println("    adrp x0, ___stdinp@GOTPAGE");
+          println("    ldr x0, [x0, ___stdinp@GOTPAGEOFF]");
+        } else if (strcmp(node->var->name, "__stderrp") == 0) {
+          println("    adrp x0, ___stderrp@GOTPAGE");
+          println("    ldr x0, [x0, ___stderrp@GOTPAGEOFF]");
+        } else {
+          println("    adrp x0, _%s@PAGE", node->var->name);
+          println("    add x0, x0, _%s@PAGEOFF", node->var->name);
+        }
       }
       return;
     case ND_DEREF:
@@ -679,8 +690,25 @@ void gen_stmt(Node *node) {
       println("; gen_stmt: ND_SWITCH");
       gen_expr(node->cond);
       for (Node *n = node->case_next; n; n = n->case_next) {
-        char *reg = (node->cond->ty->size == 8) ? "x0" : "w0";
-        println("    cmp %s, %ld", reg, n->val);
+        if (node->cond->ty->size == 8) {
+          int64_t val = n->val;
+          println("    mov x17, %#x", val & 0xFFFF);
+          for (int i = 1; i < 4; i++) {
+            uint16_t v = (val >> 16 * i) & 0xFFFF;
+            if (v) {
+              println("    movk x17, %#x, lsl %d", v, 16 * i);
+            }
+          }
+          println("    cmp x0, x17");
+        } else {
+          int32_t val = n->val;
+          println("    mov w17, %#x", val & 0xFFFF);
+          uint16_t v = (val >> 16) & 0xFFFF;
+          if (v) {
+            println("    movk w17, %#x, lsl 16", v);
+          }
+          println("    cmp w0, w17");
+        }
         println("    b.eq %s", n->label);
       }
       if (node->default_case) {
@@ -790,18 +818,20 @@ static void store_fp(int r, int offset, int sz) {
 }
 
 static void store_gp(int r, int offset, int sz) {
+  println("    mov x17, %d", offset);
+  println("    add x17, fp, x17");
   switch (sz) {
     case 1:
-      println("    strb %s, [fp, %d]", argreg32[r], offset);
+      println("    strb %s, [x17]", argreg32[r]);
       return;
     case 2:
-      println("    strh %s, [fp, %d]", argreg32[r], offset);
+      println("    strh %s, [x17]", argreg32[r]);
       return;
     case 4:
-      println("    str %s, [fp, %d]", argreg32[r], offset);
+      println("    str %s, [x17]", argreg32[r]);
       return;
     case 8:
-      println("    str %s, [fp, %d]", argreg64[r], offset);
+      println("    str %s, [x17]", argreg64[r]);
       return;
   }
   unreachable();
@@ -825,6 +855,18 @@ static void emit_text(Obj *prog) {
     println("    mov fp, sp");
     println("    mov x17, %d", fn->stack_size);
     println("    sub sp, sp, x17");
+
+    if (fn->va_area) {
+      int gp = 0, fp = 0;
+      for (Obj *var = fn->params; var; var = var->next) {
+        if (is_flonum(var->ty)) {
+          fp++;
+        } else {
+          gp++;
+        }
+      }
+      int off = fn->va_area->offset;
+    }
 
     int gp = 0, fp = 0;
     for (Obj *var = fn->params; var; var = var->next) {

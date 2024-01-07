@@ -15,9 +15,9 @@ typedef unsigned int uint32_t;
 typedef unsigned long uint64_t;
 
 typedef struct FILE FILE;
-extern FILE *stdin;
-extern FILE *stdout;
-extern FILE *stderr;
+extern FILE *__stdinp;
+extern FILE *__stdoutp;
+extern FILE *__stderrp;
 
 typedef struct {
   int gp_offset;
@@ -35,7 +35,7 @@ struct stat {
 void *malloc(long size);
 void *calloc(long nmemb, long size);
 void *realloc(void *buf, long size);
-int *__errno_location();
+int *__error();
 char *strerror(int errnum);
 FILE *fopen(char *pathname, char *mode);
 FILE *open_memstream(char **ptr, size_t *sizeloc);
@@ -77,11 +77,14 @@ for path in sys.argv[1:]:
         s = re.sub(r'^\s*#.*', '', s, flags=re.MULTILINE)
         s = re.sub(r'"\n\s*"', '', s)
         s = re.sub(r'\bbool\b', '_Bool', s)
-        s = re.sub(r'\berrno\b', '*__errno_location()', s)
+        s = re.sub(r'\berrno\b', '(*__error())', s)
         s = re.sub(r'\btrue\b', '1', s)
         s = re.sub(r'\bfalse\b', '0', s)
         s = re.sub(r'\bNULL\b', '0', s)
         s = re.sub(r'\bva_start\(([^)]*),([^)]*)\)', '*(\\1)=*(__va_elem*)__va_area__', s)
         s = re.sub(r'\bunreachable\(\)', 'error("unreachable")', s)
         s = re.sub(r'\bMIN\(([^)]*),([^)]*)\)', '((\\1)<(\\2)?(\\1):(\\2))', s)
+        s = re.sub(r'\bstdin\b', '__stdinp', s)
+        s = re.sub(r'\bstdout\b', '__stdoutp', s)
+        s = re.sub(r'\bstderr\b', '__stderrp', s)
         print(s)
