@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="chibicc" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-o tmp/tmp.s tmp/tmp.c" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$ProjectFileDir$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="chibicc" TARGET_NAME="chibicc" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="chibicc" RUN_TARGET_NAME="chibicc">
-    <method v="2">
-      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-    </method>
-  </configuration>
-</component>
