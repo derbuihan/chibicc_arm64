@@ -48,6 +48,7 @@ char schar_fn();
 short sshort_fn();
 
 int add_all(int n, ...);
+double add_all2(int n, ...);
 
 typedef struct {
   int gp_offset;
@@ -123,11 +124,21 @@ int main() {
   ASSERT(3, char_fn());
   ASSERT(5, short_fn());
 
-  // ASSERT(6, add_all(3, 1, 2, 3));
-  // ASSERT(5, add_all(4, 1, 2, 3, -1));
+  ASSERT(6, add_all(3, 1, 2, 3));
+  ASSERT(5, add_all(4, 1, 2, 3, -1));
+  ASSERT(1, add_all2(3, 1.5, 2.5, 3.5) == 7.5);
 
-  // ASSERT(0, ({ char buf[100]; sprintf(buf, "%d %d %s", 1, 2, "foo");
-  // strcmp("1 2 foo", buf); }));
+  ASSERT(0, ({
+           char buf[100];
+           sprintf(buf, "%d %d %s", 1, 2, "foo");
+           strcmp("1 2 foo", buf);
+         }));
+
+  ASSERT(0, ({
+           char buf[100];
+           fmt(buf, "%d %d %s", 1, 2, "foo");
+           strcmp("1 2 foo", buf);
+         }));
 
   ASSERT(251, uchar_fn());
   ASSERT(65528, ushort_fn());
@@ -140,8 +151,11 @@ int main() {
   ASSERT(7, add_float3(2.5, 2.5, 2.5));
   ASSERT(7, add_double3(2.5, 2.5, 2.5));
 
-  // ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f", (float)3.5); strcmp("3.5",
-  // buf); }));
+  ASSERT(0, ({
+           char buf[100];
+           sprintf(buf, "%.1f", (float)3.5);
+           strcmp("3.5", buf);
+         }));
 
   return 0;
 }

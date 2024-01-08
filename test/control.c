@@ -568,9 +568,20 @@ int main() {
            x;
          }));
 
-  // TODO: fix
-  // ASSERT(10, ({ double i = 10.0; int j = 0; for (; i; i--, j++) ; j; }));
-  // ASSERT(10, ({ double i = 10.0; int j = 0; do j++; while (--i); j; }));
+  ASSERT(10, ({
+           double i = 10.0;
+           int j = 0;
+           for (; i; i--, j++)
+             ;
+           j;
+         }));
+  ASSERT(10, ({
+           double i = 10.0;
+           int j = 0;
+           do j++;
+           while (--i);
+           j;
+         }));
 
   return 0;
 }

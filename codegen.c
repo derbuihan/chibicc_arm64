@@ -258,17 +258,40 @@ static void cast(Type *from, Type *to) {
   }
 }
 
-static void push_args(Node *args) {
-  if (args) {
-    push_args(args->next);
-    gen_expr(args);
-
-    if (is_flonum(args->ty)) {
-      pushf();
-    } else {
-      push();
-    }
+static int push_vargs(Node *args, int offset) {
+  if (!args) {
+    int align = align_to(offset, 16);
+    println("    sub sp, sp, %d", align);
+    return align;
   }
+
+  int align = push_vargs(args->next, offset + 8);
+  gen_expr(args);
+
+  if (is_flonum(args->ty)) {
+    println("    str d0, [sp, #%d]", offset);
+  } else {
+    println("    str x0, [sp, #%d]", offset);
+  }
+
+  return align;
+}
+
+static int arrange_args(Node *args, int carg, int const_nargs) {
+  if (carg >= const_nargs) {
+    int offset = 0;
+    int align = push_vargs(args, offset);
+    return align;
+  }
+
+  int align = arrange_args(args->next, carg + 1, const_nargs);
+  gen_expr(args);
+  if (is_flonum(args->ty)) {
+    pushf();
+  } else {
+    push();
+  }
+  return align;
 }
 
 void gen_expr(Node *node) {
@@ -439,15 +462,20 @@ void gen_expr(Node *node) {
     }
     case ND_FUNCALL: {
       println("; gen_expr: ND_FUNCALL");
-      push_args(node->args);
 
       int const_nargs = 0;
       for (Type *param = node->func_ty->params; param; param = param->next) {
         const_nargs++;
       }
 
+      int carg = 0;
+      int align = arrange_args(node->args, carg, const_nargs);
+
       int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
+        if (gp + fp >= const_nargs) {
+          break;
+        }
         if (is_flonum(arg->ty)) {
           popf(argregf64[fp++]);
         } else {
@@ -456,6 +484,8 @@ void gen_expr(Node *node) {
       }
 
       println("    bl _%s", node->funcname);
+      println("    add sp, sp, %d", align);
+
       switch (node->ty->kind) {
         case TY_BOOL:
           println("  uxtb w0, w0");
