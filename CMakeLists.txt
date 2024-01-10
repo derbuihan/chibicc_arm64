@@ -31,6 +31,31 @@ add_executable(chibicc2 ${STAGE2_OUTPUT_FILES})
 set_target_properties(chibicc2 PROPERTIES LINKER_LANGUAGE C)
 add_dependencies(chibicc2 stage2)
 
+# build stage3
+set(STAGE3_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage3")
+file(MAKE_DIRECTORY ${STAGE3_OUTPUT_DIR})
+
+set(STAGE3_OUTPUT_FILES "")
+foreach (SRC ${SRCS})
+    get_filename_component(SRC_NAME ${SRC} NAME_WE)
+    set(STAGE3_OUTPUT_C_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.c")
+    set(STAGE3_OUTPUT_S_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.s")
+    set(STAGE3_OUTPUT_OBJ_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.o")
+    add_custom_command(
+            OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
+            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE3_OUTPUT_C_FILE}
+            COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_S_FILE} ${STAGE3_OUTPUT_C_FILE}
+            COMMAND clang -c -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_S_FILE}
+            DEPENDS chibicc2 ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
+    )
+    list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
+endforeach ()
+
+add_custom_target(stage3 ALL DEPENDS ${STAGE3_OUTPUT_FILES})
+add_executable(chibicc3 ${STAGE3_OUTPUT_FILES})
+set_target_properties(chibicc3 PROPERTIES LINKER_LANGUAGE C)
+add_dependencies(chibicc3 stage3)
+
 # build tests
 enable_testing()
 file(GLOB TEST_SRCS test/*.c)
@@ -61,17 +86,40 @@ add_test(
         COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2
 )
 
-#set(STAGE2_TEST_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage2/test")
-#file(MAKE_DIRECTORY ${STAGE2_TEST_OUTPUT_DIR})
-#foreach (TEST_SRC ${TEST_SRCS})
-#    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
-#    set(STAGE2_TEST_OUTPUT_S_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.s")
-#    set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
-#    add_custom_target(
-#            stage2_${TEST_NAME} ALL
-#            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc2 -o ${STAGE2_TEST_OUTPUT_S_FILE} -
-#            COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_S_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
-#            DEPENDS chibicc2
-#    )
-#    add_test(NAME stage2_${TEST_NAME} COMMAND ${STAGE2_TEST_OUTPUT_EXE_FILE})
-#endforeach ()
+set(STAGE2_TEST_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage2/test")
+file(MAKE_DIRECTORY ${STAGE2_TEST_OUTPUT_DIR})
+foreach (TEST_SRC ${TEST_SRCS})
+    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    set(STAGE2_TEST_OUTPUT_S_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.s")
+    set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
+    add_custom_target(
+            stage2_${TEST_NAME} ALL
+            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc2 -o ${STAGE2_TEST_OUTPUT_S_FILE} -
+            COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_S_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+            DEPENDS chibicc2 ${TEST_SRC}
+    )
+    add_test(NAME stage2_${TEST_NAME} COMMAND ${STAGE2_TEST_OUTPUT_EXE_FILE})
+endforeach ()
+
+
+# build stage3 tests
+add_test(
+        NAME stage3_driver
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc3
+)
+
+set(STAGE3_TEST_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage3/test")
+file(MAKE_DIRECTORY ${STAGE3_TEST_OUTPUT_DIR})
+foreach (TEST_SRC ${TEST_SRCS})
+    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    set(STAGE3_TEST_OUTPUT_S_FILE "${STAGE3_TEST_OUTPUT_DIR}/${TEST_NAME}.s")
+    set(STAGE3_TEST_OUTPUT_EXE_FILE "${STAGE3_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
+    add_custom_target(
+            stage3_${TEST_NAME} ALL
+            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc3 -o ${STAGE3_TEST_OUTPUT_S_FILE} -
+            COMMAND clang -o ${STAGE3_TEST_OUTPUT_EXE_FILE} ${STAGE3_TEST_OUTPUT_S_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+            DEPENDS chibicc3 ${TEST_SRC}
+    )
+    add_test(NAME stage3_${TEST_NAME} COMMAND ${STAGE3_TEST_OUTPUT_EXE_FILE})
+endforeach ()
+
