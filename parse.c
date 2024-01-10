@@ -756,7 +756,7 @@ Token *function(Token *tok, Type *basety, VarAttr *attr) {
   create_param_lvars(ty->params);
   fn->params = locals;
   if (ty->is_variadic) {
-    fn->va_area = new_lvar("__va_area__", ty_void);
+    fn->va_area = new_lvar("__va_area__", pointer_to(ty_void));
   }
 
   assert(equal(tok, "{"));

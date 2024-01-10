@@ -50,22 +50,12 @@ short sshort_fn();
 int add_all(int n, ...);
 double add_all2(int n, ...);
 
-typedef struct {
-  int gp_offset;
-  int fp_offset;
-  void *overflow_arg_area;
-  void *reg_save_area;
-} __va_elem;
-
-typedef __va_elem va_list[1];
-
-int add_all(int n, ...);
+typedef void va_list;
 int sprintf(char *buf, char *fmt, ...);
 int vsprintf(char *buf, char *fmt, va_list ap);
-
 char *fmt(char *buf, char *fmt, ...) {
-  va_list ap;
-  *ap = *(__va_elem *)__va_area__;
+  va_list *ap;
+  ap = __va_area__;
   vsprintf(buf, fmt, ap);
 }
 
@@ -127,6 +117,12 @@ int main() {
   ASSERT(6, add_all(3, 1, 2, 3));
   ASSERT(5, add_all(4, 1, 2, 3, -1));
   ASSERT(1, add_all2(3, 1.5, 2.5, 3.5) == 7.5);
+
+  {
+    char buf[100];
+    fmt(buf, "%d %d %s", 1, 2, "foo");
+    printf("%s\n", buf);
+  }
 
   ASSERT(0, ({
            char buf[100];

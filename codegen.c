@@ -887,19 +887,18 @@ static void emit_text(Obj *prog) {
     println("    sub sp, sp, x17");
 
     if (fn->va_area) {
-      int gp = 0, fp = 0;
-      for (Obj *var = fn->params; var; var = var->next) {
-        if (is_flonum(var->ty)) {
-          fp++;
-        } else {
-          gp++;
-        }
-      }
+      println("; pram: va_area");
       int off = fn->va_area->offset;
+      println("    mov x17, %d", off);
+      println("    add x17, fp, x17");
+      println("    mov x18, fp");
+      println("    add x18, x18, 16");
+      println("    str x18, [x17]");
     }
 
     int gp = 0, fp = 0;
     for (Obj *var = fn->params; var; var = var->next) {
+      println("; param: %s", var->name);
       if (is_flonum(var->ty)) {
         store_fp(fp++, var->offset, var->ty->size);
       } else {
