@@ -69,6 +69,7 @@ float add_float3(float x, float y, float z) { return x + y + z; }
 double add_double3(double x, double y, double z) { return x + y + z; }
 
 int (*fnptr(int (*fn)(int n, ...)))(int, ...) { return fn; }
+int param_decay2(int x()) { return x(); }
 
 int main() {
   ASSERT(11, ret11());
@@ -166,6 +167,8 @@ int main() {
            fn(2, 5);
          }));
   ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
+
+  ASSERT(11, param_decay2(ret11));
 
   return 0;
 }

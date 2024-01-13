@@ -1032,11 +1032,16 @@ Type *func_params(Token **rest, Token *tok, Type *ty) {
 
     Type *ty2 = declspec(&tok, tok, NULL);
     ty2 = declarator(&tok, tok, ty2);
+
+    Token *name = ty2->name;
     if (ty2->kind == TY_ARRAY) {
-      Token *name = ty2->name;
       ty2 = pointer_to(ty2->base);
       ty2->name = name;
+    } else if (ty2->kind == TY_FUNC) {
+      ty2 = pointer_to(ty2);
+      ty2->name = name;
     }
+
     cur = cur->next = copy_type(ty2);
   }
 
