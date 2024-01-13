@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,6 +23,13 @@ typedef struct Relocation Relocation;
 
 // strings
 
+typedef struct {
+  char **data;
+  int capacity;
+  int len;
+} StringArray;
+
+void strarray_push(StringArray *arr, char *s);
 char *format(char *fmt, ...);
 
 // tokenizer

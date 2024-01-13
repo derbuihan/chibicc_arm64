@@ -1,5 +1,22 @@
 #include "chibicc.h"
 
+void strarray_push(StringArray *arr, char *s) {
+  if (!arr->data) {
+    arr->data = malloc(sizeof(char *) * 8);
+    arr->capacity = 8;
+  }
+
+  if (arr->capacity == arr->len) {
+    arr->data = realloc(arr->data, sizeof(char *) * arr->capacity * 2);
+    arr->capacity *= 2;
+    for (int i = arr->len; i < arr->capacity; i++) {
+      arr->data[i] = NULL;
+    }
+  }
+
+  arr->data[arr->len++] = s;
+}
+
 char *format(char *fmt, ...) {
   char *buf;
   size_t buflen;
