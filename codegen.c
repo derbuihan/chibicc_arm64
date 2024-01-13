@@ -115,9 +115,11 @@ static void gen_addr(Node *node) {
 
       // Funtion
       if (node->ty->kind == TY_FUNC) {
-        println("    adrp x0, _%s@PAGE", node->var->name);
-        println("    add x0, x0, _%s@PAGEOFF", node->var->name);
-        return;
+        if (node->var->is_definition) {
+          println("    adrp x0, _%s@PAGE", node->var->name);
+          println("    add x0, x0, _%s@PAGEOFF", node->var->name);
+          return;
+        }
       }
 
       // Global variable
@@ -136,6 +138,7 @@ static void gen_addr(Node *node) {
         println("    ldr x0, [x0, ___stderrp@GOTPAGEOFF]");
         return;
       }
+
       println("    adrp x0, _%s@PAGE", node->var->name);
       println("    add x0, x0, _%s@PAGEOFF", node->var->name);
       return;
@@ -291,23 +294,16 @@ static int push_vargs(Node *args, int offset) {
   return align;
 }
 
-static int arrange_args(Node *func, Node *args, int carg, int const_nargs) {
-  if (carg > const_nargs ||
-      (carg == const_nargs && !func->var->is_definition)) {
-    // expr varargs
+static int arrange_args(Node *args, int carg, int const_nargs) {
+  // expr varargs
+  if (carg >= const_nargs) {
     int offset = 0;
     int align = push_vargs(args, offset);
-    return align;
-  } else if (carg == const_nargs) {
-    // expr func
-    int align = arrange_args(func, args, carg + 1, const_nargs);
-    gen_expr(func);
-    push();
     return align;
   }
 
   // expr args
-  int align = arrange_args(func, args->next, carg + 1, const_nargs);
+  int align = arrange_args(args->next, carg + 1, const_nargs);
   gen_expr(args);
   if (is_flonum(args->ty)) {
     pushf();
@@ -492,8 +488,13 @@ void gen_expr(Node *node) {
       }
 
       int carg = 0;
+      int align = arrange_args(node->args, carg, const_nargs);
+
       Node *func = node->lhs;
-      int align = arrange_args(func, node->args, carg, const_nargs);
+      if (func->ty->kind != TY_FUNC) {
+        gen_expr(func);
+        println("    mov x8, x0");
+      }
 
       int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
@@ -507,9 +508,8 @@ void gen_expr(Node *node) {
         }
       }
 
-      if (func->var->is_definition) {
-        pop(argreg64[gp]);
-        println("    blr %s", argreg64[gp]);
+      if (func->ty->kind != TY_FUNC) {
+        println("    blr x8");
       } else {
         println("    bl _%s", func->var->name);
       }

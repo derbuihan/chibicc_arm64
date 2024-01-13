@@ -68,6 +68,8 @@ double add_double(double a, double b);
 float add_float3(float x, float y, float z) { return x + y + z; }
 double add_double3(double x, double y, double z) { return x + y + z; }
 
+int (*fnptr(int (*fn)(int n, ...)))(int, ...) { return fn; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -75,7 +77,7 @@ int main() {
   ASSERT(11, sub2(22, 11));
   ASSERT(11, sub3(44, 22, 11));
   ASSERT(28, add7(1, 2, 3, 4, 5, 6, 7));
-  // ASSERT(36, add8(1, 2, 3, 4, 5, 6, 7, 8));
+  ASSERT(36, add8(1, 2, 3, 4, 5, 6, 7, 8));
   ASSERT(44, add2(11 + ret11(), 22));
   ASSERT(44, add2(11, 22 + ret11()));
   ASSERT(55, fib(9));
@@ -156,6 +158,14 @@ int main() {
            sprintf(buf, "%.1f", (float)3.5);
            strcmp("3.5", buf);
          }));
+
+  ASSERT(5, (add2)(2, 3));
+  ASSERT(5, (&add2)(2, 3));
+  ASSERT(7, ({
+           int (*fn)(int, int) = add2;
+           fn(2, 5);
+         }));
+  ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
   return 0;
 }
