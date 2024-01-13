@@ -46,6 +46,7 @@ static void load(Type *ty) {
     case TY_ARRAY:
     case TY_STRUCT:
     case TY_UNION:
+    case TY_FUNC:
       return;
     case TY_FLOAT:
       println("    ldr s0, [x0]");
@@ -104,26 +105,39 @@ static void gen_addr(Node *node) {
   switch (node->kind) {
     case ND_VAR:
       println("; gen_addr: ND_VAR");
+      // Local variable
       if (node->var->is_local) {
         // Local variable
         println("    mov x17, %d", node->var->offset);
         println("    add x0, fp, x17");
-      } else {
-        // Global variable
-        if (strcmp(node->var->name, "__stdoutp") == 0) {
-          println("    adrp x0, ___stdoutp@GOTPAGE");
-          println("    ldr x0, [x0, ___stdoutp@GOTPAGEOFF]");
-        } else if (strcmp(node->var->name, "__stdinp") == 0) {
-          println("    adrp x0, ___stdinp@GOTPAGE");
-          println("    ldr x0, [x0, ___stdinp@GOTPAGEOFF]");
-        } else if (strcmp(node->var->name, "__stderrp") == 0) {
-          println("    adrp x0, ___stderrp@GOTPAGE");
-          println("    ldr x0, [x0, ___stderrp@GOTPAGEOFF]");
-        } else {
-          println("    adrp x0, _%s@PAGE", node->var->name);
-          println("    add x0, x0, _%s@PAGEOFF", node->var->name);
-        }
+        return;
       }
+
+      // Funtion
+      if (node->ty->kind == TY_FUNC) {
+        println("    adrp x0, _%s@PAGE", node->var->name);
+        println("    add x0, x0, _%s@PAGEOFF", node->var->name);
+        return;
+      }
+
+      // Global variable
+      if (strcmp(node->var->name, "__stdoutp") == 0) {
+        println("    adrp x0, ___stdoutp@GOTPAGE");
+        println("    ldr x0, [x0, ___stdoutp@GOTPAGEOFF]");
+        return;
+      }
+      if (strcmp(node->var->name, "__stdinp") == 0) {
+        println("    adrp x0, ___stdinp@GOTPAGE");
+        println("    ldr x0, [x0, ___stdinp@GOTPAGEOFF]");
+        return;
+      }
+      if (strcmp(node->var->name, "__stderrp") == 0) {
+        println("    adrp x0, ___stderrp@GOTPAGE");
+        println("    ldr x0, [x0, ___stderrp@GOTPAGEOFF]");
+        return;
+      }
+      println("    adrp x0, _%s@PAGE", node->var->name);
+      println("    add x0, x0, _%s@PAGEOFF", node->var->name);
       return;
     case ND_DEREF:
       println("; gen_addr: ND_DEREF");
@@ -277,14 +291,23 @@ static int push_vargs(Node *args, int offset) {
   return align;
 }
 
-static int arrange_args(Node *args, int carg, int const_nargs) {
-  if (carg >= const_nargs) {
+static int arrange_args(Node *func, Node *args, int carg, int const_nargs) {
+  if (carg > const_nargs ||
+      (carg == const_nargs && !func->var->is_definition)) {
+    // expr varargs
     int offset = 0;
     int align = push_vargs(args, offset);
     return align;
+  } else if (carg == const_nargs) {
+    // expr func
+    int align = arrange_args(func, args, carg + 1, const_nargs);
+    gen_expr(func);
+    push();
+    return align;
   }
 
-  int align = arrange_args(args->next, carg + 1, const_nargs);
+  // expr args
+  int align = arrange_args(func, args->next, carg + 1, const_nargs);
   gen_expr(args);
   if (is_flonum(args->ty)) {
     pushf();
@@ -469,7 +492,8 @@ void gen_expr(Node *node) {
       }
 
       int carg = 0;
-      int align = arrange_args(node->args, carg, const_nargs);
+      Node *func = node->lhs;
+      int align = arrange_args(func, node->args, carg, const_nargs);
 
       int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
@@ -483,7 +507,13 @@ void gen_expr(Node *node) {
         }
       }
 
-      println("    bl _%s", node->funcname);
+      if (func->var->is_definition) {
+        pop(argreg64[gp]);
+        println("    blr %s", argreg64[gp]);
+      } else {
+        println("    bl _%s", func->var->name);
+      }
+
       println("    add sp, sp, %d", align);
 
       switch (node->ty->kind) {
