@@ -1,5 +1,7 @@
 #include "chibicc.h"
 
+static bool opt_cc1;
+static bool opt_hash_hash_hash;
 static char *opt_o;
 
 static char *input_path;
@@ -11,6 +13,16 @@ static void usage(int status) {
 
 static void parse_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "-###")) {
+      opt_hash_hash_hash = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-cc1")) {
+      opt_cc1 = true;
+      continue;
+    }
+
     if (!strcmp(argv[i], "--help")) {
       usage(0);
     }
@@ -51,16 +63,55 @@ static FILE *open_file(char *path) {
   return out;
 }
 
-int main(int argc, char **argv) {
-  parse_args(argc, argv);
+static void run_subprocess(char **argv) {
+  if (opt_hash_hash_hash) {
+    printf(stderr, "%s", argv[0]);
+    for (int i = 1; argv[i]; i++) {
+      printf(stderr, " %s", argv[i]);
+    }
+    printf(stderr, "\n");
+  }
 
+  if (fork() == 0) {
+    execvp(argv[0], argv);
+    fprintf(stderr, "exec failed: %s: %s\n", argv[0], strerror(errno));
+    _exit(1);
+  }
+
+  int status;
+  while (wait(&status) > 0) {
+    if (status != 0) {
+      exit(1);
+    }
+  }
+}
+
+static void run_cc1(int argc, char **argv) {
+  char **args = calloc(argc + 10, sizeof(char *));
+  memcpy(args, argv, sizeof(char *) * argc);
+  args[argc++] = "-cc1";
+  run_subprocess(args);
+}
+
+static void cc1(void) {
   // Tokenize and parse.
   Token *tok = tokenize_file(input_path);
   Obj *prog = parse(tok);
 
   // Traverse the AST to emit assembly.
   FILE *out = open_file(opt_o);
+  fprintf(out, ".file 1 \"%s\"\n", input_path);
   code_gen(prog, out);
+}
 
+int main(int argc, char **argv) {
+  parse_args(argc, argv);
+
+  if (opt_cc1) {
+    cc1();
+    return 0;
+  }
+
+  run_cc1(argc, argv);
   return 0;
 }
