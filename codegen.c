@@ -313,6 +313,26 @@ static int arrange_args(Node *args, int carg, int const_nargs) {
   return align;
 }
 
+static void gen_num64(int64_t val) {
+  println("    mov x0, %#lx", val & 0xFFFF);
+  for (int i = 1; i < 4; i++) {
+    uint16_t v = (val >> 16 * i) & 0xFFFF;
+    if (v) {
+      println("    movk x0, %#x, lsl %d", v, 16 * i);
+    }
+  }
+  return;
+}
+
+static void gen_num32(int32_t val) {
+  println("    mov w0, %#x", val & 0xFFFF);
+  uint16_t v = (val >> 16) & 0xFFFF;
+  if (v) {
+    println("    movk w0, %#x, lsl 16", v);
+  }
+  return;
+}
+
 void gen_expr(Node *node) {
   switch (node->kind) {
     case ND_NULL_EXPR:
@@ -320,51 +340,35 @@ void gen_expr(Node *node) {
       return;
     case ND_NUM:
       println("; gen_expr: ND_NUM");
-      if (node->ty->kind == TY_DOUBLE) {
-        double d = node->fval;
-        int64_t val = *(int64_t *)&d;
-        println("    mov x0, %#x", val & 0xFFFF);
-        for (int i = 1; i < 4; i++) {
-          uint16_t v = (val >> 16 * i) & 0xFFFF;
-          if (v) {
-            println("    movk x0, %#x, lsl %d", v, 16 * i);
-          }
+      switch (node->ty->kind) {
+        case TY_FLOAT: {
+          float f = node->fval;
+          int32_t val = *(int32_t *)&f;
+          gen_num32(val);
+          println("    fmov s0, w0");
+          return;
         }
-        println("    fmov d0, x0");
-        return;
-      } else if (node->ty->kind == TY_FLOAT) {
-        float f = node->fval;
-        int32_t val = *(int32_t *)&f;
-        println("    mov w0, %#x", val & 0xFFFF);
-        uint16_t v = (val >> 16) & 0xFFFF;
-        if (v) {
-          println("    movk w0, %#x, lsl 16", v);
+        case TY_DOUBLE: {
+          double d = node->fval;
+          int64_t val = *(int64_t *)&d;
+          gen_num64(val);
+          println("    fmov d0, x0");
+          return;
         }
-        println("    fmov s0, w0");
-        return;
-      } else if (node->ty->kind == TY_LONG) {
-        int64_t val = node->val;
-        println("    mov x0, %#x", val & 0xFFFF);
-        for (int i = 1; i < 4; i++) {
-          uint16_t v = (val >> 16 * i) & 0xFFFF;
-          if (v) {
-            println("    movk x0, %#x, lsl %d", v, 16 * i);
-          }
+        case TY_LONG: {
+          int64_t val = node->val;
+          gen_num64(val);
+          return;
         }
-        return;
-      } else {
-        int32_t val = node->val;
-        println("    mov w0, %#x", val & 0xFFFF);
-        uint16_t v = (val >> 16) & 0xFFFF;
-        if (v) {
-          println("    movk w0, %#x, lsl 16", v);
+        default: {
+          int32_t val = node->val;
+          gen_num32(val);
+          return;
         }
-        return;
       }
     case ND_NEG:
       println("; gen_expr: ND_NEG");
       gen_expr(node->lhs);
-
       switch (node->ty->kind) {
         case TY_FLOAT:
           println("    fneg s0, s0");
@@ -372,10 +376,10 @@ void gen_expr(Node *node) {
         case TY_DOUBLE:
           println("    fneg d0, d0");
           return;
+        default:
+          println("    neg x0, x0");
+          return;
       }
-
-      println("    neg x0, x0");
-      return;
     case ND_VAR:
     case ND_MEMBER:
       println("; gen_expr: ND_VAR, ND_MEMBER");
@@ -580,14 +584,19 @@ void gen_expr(Node *node) {
       case ND_LE:
         println("; gen_expr: ND_EQ, ND_NE, ND_LT, ND_LE");
         println("    fcmp %s, %s", r0, r1);
-        if (node->kind == ND_EQ) {
-          println("    cset w0, EQ");
-        } else if (node->kind == ND_NE) {
-          println("    cset w0, NE");
-        } else if (node->kind == ND_LT) {
-          println("    cset w0, LT");
-        } else if (node->kind == ND_LE) {
-          println("    cset w0, LE");
+        switch (node->kind) {
+          case ND_EQ:
+            println("    cset w0, EQ");
+            return;
+          case ND_NE:
+            println("    cset w0, NE");
+            return;
+          case ND_LT:
+            println("    cset w0, LT");
+            return;
+          case ND_LE:
+            println("    cset w0, LE");
+            return;
         }
         return;
     }
@@ -659,24 +668,28 @@ void gen_expr(Node *node) {
     case ND_LE:
       println("; gen_expr: ND_EQ, ND_NE, ND_LT, ND_LE");
       println("    cmp %s, %s", r0, r1);
-      if (node->kind == ND_EQ) {
-        println("    cset %s, EQ", r0);
-      } else if (node->kind == ND_NE) {
-        println("    cset %s, NE", r0);
-      } else if (node->kind == ND_LT) {
-        if (node->lhs->ty->is_unsigned) {
-          println("    cset %s, LO", r0);
-        } else {
-          println("    cset %s, LT", r0);
-        }
-      } else if (node->kind == ND_LE) {
-        if (node->lhs->ty->is_unsigned) {
-          println("    cset %s, LS", r0);
-        } else {
-          println("    cset %s, LE", r0);
-        }
+      switch (node->kind) {
+        case ND_EQ:
+          println("    cset %s, EQ", r0);
+          return;
+        case ND_NE:
+          println("    cset %s, NE", r0);
+          return;
+        case ND_LT:
+          if (node->lhs->ty->is_unsigned) {
+            println("    cset %s, LO", r0);
+          } else {
+            println("    cset %s, LT", r0);
+          }
+          return;
+        case ND_LE:
+          if (node->lhs->ty->is_unsigned) {
+            println("    cset %s, LS", r0);
+          } else {
+            println("    cset %s, LE", r0);
+          }
+          return;
       }
-      return;
     case ND_SHL:
       println("; gen_expr: ND_SHL");
       println("    lsl %s, %s, %s", r0, r0, r1);
@@ -749,25 +762,17 @@ void gen_stmt(Node *node) {
     case ND_SWITCH:
       println("; gen_stmt: ND_SWITCH");
       gen_expr(node->cond);
+      push();
+      pop("x1");
       for (Node *n = node->case_next; n; n = n->case_next) {
         if (node->cond->ty->size == 8) {
           int64_t val = n->val;
-          println("    mov x17, %#x", val & 0xFFFF);
-          for (int i = 1; i < 4; i++) {
-            uint16_t v = (val >> 16 * i) & 0xFFFF;
-            if (v) {
-              println("    movk x17, %#x, lsl %d", v, 16 * i);
-            }
-          }
-          println("    cmp x0, x17");
+          gen_num64(val);
+          println("    cmp x0, x1");
         } else {
           int32_t val = n->val;
-          println("    mov w17, %#x", val & 0xFFFF);
-          uint16_t v = (val >> 16) & 0xFFFF;
-          if (v) {
-            println("    movk w17, %#x, lsl 16", v);
-          }
-          println("    cmp w0, w17");
+          gen_num32(val);
+          println("    cmp w0, w1");
         }
         println("    b.eq %s", n->label);
       }

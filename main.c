@@ -144,7 +144,7 @@ static void cc1(void) {
 
   // Traverse the AST to emit assembly.
   FILE *out = open_file(opt_o);
-  fprintf(out, ".file 1 \"%s\"\n", input_path);
+  fprintf(out, "    .file 1 \"%s\"\n", input_path);
   code_gen(prog, out);
 }
 
