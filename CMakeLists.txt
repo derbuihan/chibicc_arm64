@@ -59,11 +59,22 @@ file(GLOB TEST_SRCS test/*.c)
 set(TEST_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/test")
 file(MAKE_DIRECTORY ${TEST_OUTPUT_DIR})
 
-add_test(
-        NAME driver
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc
+add_test(NAME driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc)
+
+set(MACRO_TEST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/test/macro.c")
+add_custom_target(
+        macro ALL
+        COMMAND ./chibicc -c -o ${TEST_OUTPUT_DIR}/macro.o ${MACRO_TEST_FILE}
+        COMMAND clang -o ${TEST_OUTPUT_DIR}/macro.exe ${TEST_OUTPUT_DIR}/macro.o -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+        DEPENDS chibicc ${MACRO_TEST_FILE}
 )
+add_test(NAME macro COMMAND ${TEST_OUTPUT_DIR}/macro.exe)
+
 foreach (TEST_SRC ${TEST_SRCS})
+    if (${TEST_SRC} STREQUAL ${MACRO_TEST_FILE})
+        continue()
+    endif ()
+
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     set(TEST_OUTPUT_OBJ_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.o")
     set(TEST_OUTPUT_EXE_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
@@ -77,14 +88,24 @@ foreach (TEST_SRC ${TEST_SRCS})
 endforeach ()
 
 # build stage2 tests
-add_test(
-        NAME stage2_driver
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2
-)
-
 set(STAGE2_TEST_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage2/test")
 file(MAKE_DIRECTORY ${STAGE2_TEST_OUTPUT_DIR})
+
+add_test(NAME stage2_driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2)
+
+add_custom_target(
+        stage2_macro ALL
+        COMMAND ./chibicc2 -c -o ${STAGE2_TEST_OUTPUT_DIR}/macro.o ${MACRO_TEST_FILE}
+        COMMAND clang -o ${STAGE2_TEST_OUTPUT_DIR}/macro.exe ${STAGE2_TEST_OUTPUT_DIR}/macro.o -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
+        DEPENDS chibicc2 ${MACRO_TEST_FILE}
+)
+add_test(NAME stage2_macro COMMAND ${STAGE2_TEST_OUTPUT_DIR}/macro.exe)
+
 foreach (TEST_SRC ${TEST_SRCS})
+    if (${TEST_SRC} STREQUAL ${MACRO_TEST_FILE})
+        continue()
+    endif ()
+
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     set(STAGE2_TEST_OUTPUT_OBJ_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.o")
     set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
