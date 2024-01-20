@@ -217,6 +217,8 @@ Node *new_node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);
 
 Node *new_cast(Node *expr, Type *ty);
 
+int64_t const_expr(Token **rest, Token *tok);
+
 Obj *parse(Token *tok);
 
 // type
