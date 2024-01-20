@@ -2,6 +2,17 @@
 
 static bool is_hash(Token *tok) { return tok->at_bol && equal(tok, "#"); }
 
+static Token *skip_line(Token *tok) {
+  if (tok->at_bol) {
+    return tok;
+  }
+  warn_tok(tok, "extra token");
+  while (tok->at_bol) {
+    tok = tok->next;
+  }
+  return tok;
+}
+
 static Token *copy_token(Token *tok) {
   Token *t = calloc(1, sizeof(Token));
   *t = *tok;
@@ -48,7 +59,8 @@ static Token *preprocess2(Token *tok) {
       if (!tok2) {
         error_tok(tok, "%s", strerror(errno));
       }
-      tok = append(tok2, tok->next);
+      tok = skip_line(tok->next);
+      tok = append(tok2, tok);
       continue;
     }
 

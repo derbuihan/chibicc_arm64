@@ -72,6 +72,14 @@ static Token *new_token(TokenKind kind, char *start, char *end) {
   return tok;
 }
 
+void warn_tok(Token *tok, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verror_at(tok->file->name, tok->file->contents, tok->line_no, tok->loc, fmt,
+            ap);
+  va_end(ap);
+}
+
 bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }

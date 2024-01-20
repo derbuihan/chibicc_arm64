@@ -70,6 +70,7 @@ struct Token {
 void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
 void error_tok(Token *tok, char *fmt, ...);
+void warn_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
 void convert_keywords(Token *tok);
 File **get_input_files(void);
