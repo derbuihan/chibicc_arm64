@@ -19,7 +19,7 @@ check() {
 
 # -o
 rm -f $tmp/out
-$chibicc -o $tmp/out $tmp/empty.c
+$chibicc -c -o $tmp/out $tmp/empty.c
 [ -f $tmp/out ]
 check "-o"
 
@@ -31,13 +31,14 @@ check "--help"
 echo 'int main() {}' | $chibicc -S -o - - | grep -q '_main:'
 check "-S"
 
+# Default output file
 rm -f $tmp/out.o $tmp/out.s
 echo 'int main() {}' > $tmp/out.c
-(cd $tmp; $chibicc out.c)
+(cd $tmp; $chibicc -c out.c)
 [ -f $tmp/out.o ]
 check "default output file"
 
-(cd $tmp; $chibicc -S out.c)
+(cd $tmp; $chibicc -c -S out.c)
 [ -f $tmp/out.s ]
 check "default output file"
 
@@ -45,15 +46,35 @@ check "default output file"
 rm -f $tmp/foo.o $tmp/bar.o
 echo 'int x;' > $tmp/foo.c
 echo 'int y;' > $tmp/bar.c
-(cd $tmp; $chibicc foo.c bar.c)
+(cd $tmp; $chibicc -c foo.c bar.c)
 [ -f $tmp/foo.o ] && [ -f $tmp/bar.o ]
 check "multiple input files"
 
 rm -f $tmp/foo.s $tmp/bar.s
 echo 'int x;' > $tmp/foo.c
 echo 'int y;' > $tmp/bar.c
-(cd $tmp; $chibicc -S foo.c bar.c)
+(cd $tmp; $chibicc -c -S foo.c bar.c)
 [ -f $tmp/foo.s ] && [ -f $tmp/bar.s ]
 check "multiple input files"
+
+# Run linker
+rm -f $tmp/foo
+echo 'int main() { return 0; }' | $chibicc -o $tmp/foo -
+$tmp/foo
+check "linker"
+
+rm -f $tmp/foo
+echo 'int bar(); int main() { return bar(); }' > $tmp/foo.c
+echo 'int bar() { return 42; }' > $tmp/bar.c
+$chibicc -o $tmp/foo $tmp/foo.c $tmp/bar.c
+$tmp/foo
+[ $? -eq 42 ]
+check "linker"
+
+rm -f $tmp/a.out
+echo 'int main() {}' > $tmp/foo.c
+(cd $tmp; $chibicc foo.c)
+[ -f $tmp/a.out ]
+check "a.out"
 
 echo OK

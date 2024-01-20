@@ -1,6 +1,7 @@
 #include "chibicc.h"
 
 static bool opt_S;
+static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static char *opt_o;
@@ -57,6 +58,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-c")) {
+      opt_c = true;
+      continue;
+    }
+
     if (!strcmp(argv[i], "-cc1-input")) {
       base_file = argv[++i];
       continue;
@@ -88,6 +94,12 @@ static FILE *open_file(char *path) {
     error("cannot open output file: %s: %s", path, strerror(errno));
   }
   return out;
+}
+
+static bool endswith(char *p, char *q) {
+  int len1 = strlen(p);
+  int len2 = strlen(q);
+  return (len1 >= len2) && !strcmp(p + len1 - len2, q);
 }
 
 static char *replace_extn(char *tmpl, char *extn) {
@@ -174,6 +186,21 @@ static void assemble(char *input, char *output) {
   run_subprocess(cmd);
 }
 
+static void run_linker(StringArray *inputs, char *output) {
+  StringArray arr = {};
+
+  strarray_push(&arr, "ld");
+  strarray_push(&arr, "-o");
+  strarray_push(&arr, output);
+
+  for (int i = 0; i < inputs->len; i++) {
+    strarray_push(&arr, inputs->data[i]);
+  }
+
+  strarray_push(&arr, NULL);
+  run_subprocess(arr.data);
+}
+
 int main(int argc, char **argv) {
   atexit(cleanup);
   parse_args(argc, argv);
@@ -183,9 +210,11 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  if (input_paths.len > 1 && opt_o) {
+  if (input_paths.len > 1 && opt_o && (opt_c || opt_S)) {
     error("cannot specify -o with -c, -S or multiple files");
   }
+
+  StringArray ld_args = {};
 
   for (int i = 0; i < input_paths.len; i++) {
     char *input = input_paths.data[i];
@@ -199,14 +228,48 @@ int main(int argc, char **argv) {
       output = replace_extn(input, ".o");
     }
 
+    // Handle .o
+    if (endswith(input, ".o")) {
+      strarray_push(&ld_args, input);
+      continue;
+    }
+
+    // Handle .s
+    if (endswith(input, ".s")) {
+      if (!opt_S) {
+        assemble(input, output);
+      }
+      continue;
+    }
+
+    // Handle .c
+    if (!endswith(input, ".c") && strcmp(input, "-")) {
+      error("unknown input file extention: %s", input);
+    }
+
+    // Just compile
     if (opt_S) {
       run_cc1(argc, argv, input, output);
       continue;
     }
 
-    char *tmpfile = create_tmpfile();
-    run_cc1(argc, argv, input, tmpfile);
-    assemble(tmpfile, output);
+    if (opt_c) {
+      char *tmpfile = create_tmpfile();
+      run_cc1(argc, argv, input, tmpfile);
+      assemble(tmpfile, output);
+      continue;
+    }
+
+    char *tmp1 = create_tmpfile();
+    char *tmp2 = create_tmpfile();
+    run_cc1(argc, argv, input, tmp1);
+    assemble(tmp1, tmp2);
+    strarray_push(&ld_args, tmp2);
+    continue;
+  }
+
+  if (ld_args.len > 0) {
+    run_linker(&ld_args, opt_o ? opt_o : "a.out");
   }
 
   return 0;

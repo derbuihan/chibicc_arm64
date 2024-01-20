@@ -18,7 +18,7 @@ foreach (SRC ${SRCS})
     add_custom_command(
             OUTPUT ${STAGE2_OUTPUT_OBJ_FILE}
             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE2_OUTPUT_C_FILE}
-            COMMAND ./chibicc -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_C_FILE}
+            COMMAND ./chibicc -c -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_C_FILE}
             DEPENDS chibicc ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
     )
     list(APPEND STAGE2_OUTPUT_FILES ${STAGE2_OUTPUT_OBJ_FILE})
@@ -41,7 +41,7 @@ foreach (SRC ${SRCS})
     add_custom_command(
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE3_OUTPUT_C_FILE}
-            COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_C_FILE}
+            COMMAND ./chibicc2 -c -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_C_FILE}
             DEPENDS chibicc2 ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
     )
     list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
@@ -69,7 +69,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(TEST_OUTPUT_EXE_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             ${TEST_NAME} ALL
-            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc -o ${TEST_OUTPUT_OBJ_FILE} -
+            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc -c -o ${TEST_OUTPUT_OBJ_FILE} -
             COMMAND clang -o ${TEST_OUTPUT_EXE_FILE} ${TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc ${TEST_SRC}
     )
@@ -90,7 +90,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             stage2_${TEST_NAME} ALL
-            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc2 -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} -
+            COMMAND clang -o- -E -P -C ${TEST_SRC} | ./chibicc2 -c -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} -
             COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc2 ${TEST_SRC}
     )
@@ -98,4 +98,7 @@ foreach (TEST_SRC ${TEST_SRCS})
 endforeach ()
 
 # compare stage2 and stage3
-add_test(NAME consistency_check COMMAND bash -c "test $(cmp -l chibicc2 chibicc3 | wc -l) -le 1 && echo OK")
+add_test(
+        NAME compare_stage2_stage3
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/compare.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2 ${CMAKE_CURRENT_BINARY_DIR}/chibicc3
+)
