@@ -45,6 +45,12 @@ typedef enum {
   TK_EOF,
 } TokenKind;
 
+typedef struct {
+  char *name;
+  int file_no;
+  char *contents;
+} File;
+
 typedef struct Token Token;
 struct Token {
   TokenKind kind;  // Token kind
@@ -55,8 +61,10 @@ struct Token {
   int len;         // Token length
   Type *ty;        // Used if TK_NUM or TK_STR
   char *str;       // String literal contents including terminating '\0'
-  int line_no;     // Line number
-  bool at_bol;     // True if this token is at beginning of line
+
+  File *file;   // Source location
+  int line_no;  // Line number
+  bool at_bol;  // True if this token is at beginning of line
 };
 
 void error(char *fmt, ...);
@@ -64,6 +72,7 @@ void error_at(char *loc, char *fmt, ...);
 void error_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
 void convert_keywords(Token *tok);
+File **get_input_files(void);
 Token *tokenize_file(char *path);
 
 #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
@@ -306,3 +315,7 @@ void add_type(Node *node);
 void code_gen(Obj *prog, FILE *out);
 
 int align_to(int n, int align);
+
+// main.c
+
+extern char *base_file;

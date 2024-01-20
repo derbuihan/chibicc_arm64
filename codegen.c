@@ -334,6 +334,8 @@ static void gen_num32(int32_t val) {
 }
 
 void gen_expr(Node *node) {
+  println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
+
   switch (node->kind) {
     case ND_NULL_EXPR:
       println("; gen_expr: ND_NULL_EXPR");
@@ -710,6 +712,8 @@ void gen_expr(Node *node) {
 }
 
 void gen_stmt(Node *node) {
+  println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
+
   switch (node->kind) {
     case ND_IF: {
       println("; gen_stmt: ND_IF");
@@ -954,6 +958,12 @@ static void emit_text(Obj *prog) {
 
 void code_gen(Obj *prog, FILE *out) {
   output_file = out;
+
+  File **files = get_input_files();
+  for (int i = 0; files[i]; i++) {
+    File *file = files[i];
+    println("    .file %d \"%s\"", file->file_no, file->name);
+  }
 
   assign_lvar_offsets(prog);
   emit_data(prog);

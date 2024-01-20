@@ -1,5 +1,7 @@
 int printf(char *fmt, ...);
 
+#include "include1.h"
+
 #
 
 /* */ #
