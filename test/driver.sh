@@ -42,7 +42,6 @@ check "default output file"
 [ -f $tmp/out.s ]
 check "default output file"
 
-
 rm -f $tmp/foo.o $tmp/bar.o
 echo 'int x;' > $tmp/foo.c
 echo 'int y;' > $tmp/bar.c
@@ -76,5 +75,15 @@ echo 'int main() {}' > $tmp/foo.c
 (cd $tmp; $chibicc foo.c)
 [ -f $tmp/a.out ]
 check "a.out"
+
+# -E
+echo "foo" > $tmp/out
+echo "#include \"$tmp/out\"" | $chibicc -E - | grep -q "foo"
+check "-E"
+
+echo "bar" > $tmp/out1
+echo "#include \"$tmp/out1\"" | $chibicc -E -o $tmp/out2 -
+cat $tmp/out2 | grep -q "bar"
+check "-E and -o"
 
 echo OK
