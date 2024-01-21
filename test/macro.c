@@ -116,5 +116,13 @@ int main() {
 #define END )
   ASSERT_ 5, if, five END;
 
+#undef ASSERT_
+#undef if
+#undef five
+#undef END
+
+  if (0)
+    ;
+
   return 0;
 }
