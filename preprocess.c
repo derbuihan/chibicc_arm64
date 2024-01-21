@@ -1,10 +1,24 @@
 #include "chibicc.h"
 
+typedef struct MacroParam MacroParam;
+struct MacroParam {
+  MacroParam *next;
+  char *name;
+};
+
+typedef struct MacroArg MacroArg;
+struct MacroArg {
+  MacroArg *next;
+  char *name;
+  Token *tok;
+};
+
 typedef struct Macro Macro;
 struct Macro {
   Macro *next;
   char *name;
   bool is_objlike;
+  MacroParam *params;
   Token *body;
   bool deleted;
 };
@@ -204,6 +218,29 @@ static Macro *add_macro(char *name, bool is_objlike, Token *body) {
   return m;
 }
 
+static MacroParam *read_macro_params(Token **rest, Token *tok) {
+  MacroParam head = {};
+  MacroParam *cur = &head;
+
+  while (!equal(tok, ")")) {
+    if (cur != &head) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ','
+    }
+
+    if (tok->kind != TK_IDENT) {
+      error_tok(tok, "expected an identifier");
+    }
+    MacroParam *m = calloc(1, sizeof(MacroParam));
+    m->name = strndup(tok->loc, tok->len);
+    cur = cur->next = m;
+    tok = tok->next;
+  }
+
+  *rest = tok->next;
+  return head.next;
+}
+
 static void read_macro_definition(Token **rest, Token *tok) {
   if (tok->kind != TK_IDENT) {
     error_tok(tok, "macro name must be an identifier");
@@ -212,13 +249,93 @@ static void read_macro_definition(Token **rest, Token *tok) {
   tok = tok->next;
 
   if (!tok->has_space && equal(tok, "(")) {
-    tok = tok->next;  // skip '('
-    assert(equal(tok, ")"));
-    tok = tok->next;  // skip ')'
-    add_macro(name, false, copy_line(rest, tok));
+    MacroParam *params = read_macro_params(&tok, tok->next);
+    Macro *m = add_macro(name, false, copy_line(rest, tok));
+    m->params = params;
   } else {
     add_macro(name, true, copy_line(rest, tok));
   }
+}
+
+static MacroArg *read_macro_arg_one(Token **rest, Token *tok) {
+  Token head = {};
+  Token *cur = &head;
+
+  while (!equal(tok, ",") && !equal(tok, ")")) {
+    if (tok->kind == TK_EOF) {
+      error_tok(tok, "premature end of input");
+    }
+    cur = cur->next = copy_token(tok);
+    tok = tok->next;
+  }
+
+  cur->next = new_eof(tok);
+
+  MacroArg *arg = calloc(1, sizeof(MacroArg));
+  arg->tok = head.next;
+  *rest = tok;
+  return arg;
+}
+
+static MacroArg *read_macro_args(Token **rest, Token *tok, MacroParam *params) {
+  Token *start = tok;
+  tok = tok->next->next;
+
+  MacroArg head = {};
+  MacroArg *cur = &head;
+
+  MacroParam *pp = params;
+  for (; pp; pp = pp->next) {
+    if (cur != &head) {
+      assert(equal(tok, ","));
+      tok = tok->next;  // skip ','
+    }
+    cur = cur->next = read_macro_arg_one(&tok, tok);
+    cur->name = pp->name;
+  }
+
+  if (pp) {
+    error_tok(start, "too few arguments");
+  }
+
+  assert(equal(tok, ")"));
+  tok = tok->next;  // skip ')'
+  *rest = tok;
+  return head.next;
+}
+
+static MacroArg *find_arg(MacroArg *args, Token *tok) {
+  for (MacroArg *ap = args; ap; ap = ap->next) {
+    if (tok->len == strlen(ap->name) &&
+        !strncmp(tok->loc, ap->name, tok->len)) {
+      return ap;
+    }
+  }
+  return NULL;
+}
+
+static Token *subst(Token *tok, MacroArg *args) {
+  Token head = {};
+  Token *cur = &head;
+
+  while (tok->kind != TK_EOF) {
+    MacroArg *arg = find_arg(args, tok);
+
+    if (arg) {
+      Token *t = preprocess2(arg->tok);
+      for (; t->kind != TK_EOF; t = t->next) {
+        cur = cur->next = copy_token(t);
+      }
+      tok = tok->next;
+      continue;
+    }
+
+    cur = cur->next = copy_token(tok);
+    tok = tok->next;
+  }
+
+  cur->next = tok;
+  return head.next;
 }
 
 static bool expand_macro(Token **rest, Token *tok) {
@@ -242,10 +359,8 @@ static bool expand_macro(Token **rest, Token *tok) {
     return false;
   }
 
-  tok = tok->next->next;  // skip '('
-  assert(equal(tok, ")"));
-  tok = tok->next;  // skip ')'
-  *rest = append(m->body, tok);
+  MacroArg *args = read_macro_args(&tok, tok, m->params);
+  *rest = append(subst(m->body, args), tok);
   return true;
 }
 
