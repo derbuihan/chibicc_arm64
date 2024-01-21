@@ -22,6 +22,7 @@ typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Member Member;
 typedef struct Relocation Relocation;
+typedef struct Hideset Hideset;
 
 // strings
 
@@ -62,9 +63,10 @@ struct Token {
   Type *ty;        // Used if TK_NUM or TK_STR
   char *str;       // String literal contents including terminating '\0'
 
-  File *file;   // Source location
-  int line_no;  // Line number
-  bool at_bol;  // True if this token is at beginning of line
+  File *file;        // Source location
+  int line_no;       // Line number
+  bool at_bol;       // True if this token is at beginning of line
+  Hideset *hideset;  // For macro expansion
 };
 
 void error(char *fmt, ...);

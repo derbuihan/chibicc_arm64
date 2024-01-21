@@ -16,6 +16,12 @@ struct CondIncl {
   bool included;
 };
 
+typedef struct Hideset Hideset;
+struct Hideset {
+  Hideset *next;
+  char *name;
+};
+
 static Macro *macros;
 static CondIncl *cond_incl;
 
@@ -46,6 +52,45 @@ static Token *new_eof(Token *tok) {
   t->kind = TK_EOF;
   t->len = 0;
   return t;
+}
+
+static Hideset *new_hideset(char *name) {
+  Hideset *hs = calloc(1, sizeof(Hideset));
+  hs->name = name;
+  return hs;
+}
+
+static Hideset *hideset_union(Hideset *hs1, Hideset *hs2) {
+  Hideset head = {};
+  Hideset *cur = &head;
+
+  for (; hs1; hs1 = hs1->next) {
+    cur = cur->next = new_hideset(hs1->name);
+  }
+  cur->next = hs2;
+  return head.next;
+}
+
+static bool hideset_contains(Hideset *hs, char *s, int len) {
+  for (; hs; hs = hs->next) {
+    if (strlen(hs->name) == len && !strncmp(hs->name, s, len)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static Token *add_hideset(Token *tok, Hideset *hs) {
+  Token head = {};
+  Token *cur = &head;
+
+  for (; tok; tok = tok->next) {
+    Token *t = copy_token(tok);
+    t->hideset = hideset_union(t->hideset, hs);
+    cur = cur->next = t;
+  }
+
+  return head.next;
 }
 
 static Token *append(Token *tok1, Token *tok2) {
@@ -156,11 +201,18 @@ static Macro *add_macro(char *name, Token *body) {
 }
 
 static bool expand_macro(Token **rest, Token *tok) {
+  if (hideset_contains(tok->hideset, tok->loc, tok->len)) {
+    return false;
+  }
+
   Macro *m = find_macro(tok);
   if (!m) {
     return false;
   }
-  *rest = append(m->body, tok->next);
+
+  Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
+  Token *body = add_hideset(m->body, hs);
+  *rest = append(body, tok->next);
   return true;
 }
 
