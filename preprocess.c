@@ -260,6 +260,14 @@ static long eval_const_expr(Token **rest, Token *tok) {
     error_tok(start, "no expression");
   }
 
+  for (Token *t = expr; t->kind != TK_EOF; t = t->next) {
+    if (t->kind == TK_IDENT) {
+      Token *next = t->next;
+      *t = *new_num_token(0, t);
+      t->next = next;
+    }
+  }
+
   Token *rest2;
   long val = const_expr(&rest2, expr);
 
