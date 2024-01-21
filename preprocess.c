@@ -4,6 +4,7 @@ typedef struct Macro Macro;
 struct Macro {
   Macro *next;
   char *name;
+  bool is_objlike;
   Token *body;
   bool deleted;
 };
@@ -193,13 +194,31 @@ static Macro *find_macro(Token *tok) {
   return NULL;
 }
 
-static Macro *add_macro(char *name, Token *body) {
+static Macro *add_macro(char *name, bool is_objlike, Token *body) {
   Macro *m = calloc(1, sizeof(Macro));
   m->next = macros;
   m->name = name;
+  m->is_objlike = is_objlike;
   m->body = body;
   macros = m;
   return m;
+}
+
+static void read_macro_definition(Token **rest, Token *tok) {
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "macro name must be an identifier");
+  }
+  char *name = strndup(tok->loc, tok->len);
+  tok = tok->next;
+
+  if (!tok->has_space && equal(tok, "(")) {
+    tok = tok->next;  // skip '('
+    assert(equal(tok, ")"));
+    tok = tok->next;  // skip ')'
+    add_macro(name, false, copy_line(rest, tok));
+  } else {
+    add_macro(name, true, copy_line(rest, tok));
+  }
 }
 
 static bool expand_macro(Token **rest, Token *tok) {
@@ -212,9 +231,21 @@ static bool expand_macro(Token **rest, Token *tok) {
     return false;
   }
 
-  Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
-  Token *body = add_hideset(m->body, hs);
-  *rest = append(body, tok->next);
+  if (m->is_objlike) {
+    Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
+    Token *body = add_hideset(m->body, hs);
+    *rest = append(body, tok->next);
+    return true;
+  }
+
+  if (!equal(tok->next, "(")) {
+    return false;
+  }
+
+  tok = tok->next->next;  // skip '('
+  assert(equal(tok, ")"));
+  tok = tok->next;  // skip ')'
+  *rest = append(m->body, tok);
   return true;
 }
 
@@ -260,12 +291,7 @@ static Token *preprocess2(Token *tok) {
     }
 
     if (equal(tok, "define")) {
-      tok = tok->next;
-      if (tok->kind != TK_IDENT) {
-        error_tok(tok, "macro name must be an identifier");
-      }
-      char *name = strndup(tok->loc, tok->len);
-      add_macro(name, copy_line(&tok, tok->next));
+      read_macro_definition(&tok, tok->next);
       continue;
     }
 
@@ -277,7 +303,7 @@ static Token *preprocess2(Token *tok) {
       char *name = strndup(tok->loc, tok->len);
       tok = skip_line(tok->next);
 
-      Macro *m = add_macro(name, NULL);
+      Macro *m = add_macro(name, true, NULL);
       m->deleted = true;
       continue;
     }
