@@ -77,6 +77,8 @@ void warn_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
 void convert_keywords(Token *tok);
 File **get_input_files(void);
+Token *tokenize(File *file);
+File *new_file(char *name, int file_no, char *contents);
 Token *tokenize_file(char *path);
 
 #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
@@ -217,9 +219,7 @@ struct Node {
 };
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);
-
 Node *new_cast(Node *expr, Type *ty);
-
 int64_t const_expr(Token **rest, Token *tok);
 
 Obj *parse(Token *tok);
@@ -297,29 +297,20 @@ extern Type *ty_float;
 extern Type *ty_double;
 
 bool is_integer(Type *ty);
-
 bool is_flonum(Type *ty);
-
 bool is_numeric(Type *ty);
 
 Type *copy_type(Type *ty);
-
 Type *pointer_to(Type *base);
-
 Type *func_type(Type *return_ty);
-
 Type *array_of(Type *base, int len);
-
 Type *enum_type(void);
-
 Type *struct_type(void);
-
 void add_type(Node *node);
 
 // codegen
 
 void code_gen(Obj *prog, FILE *out);
-
 int align_to(int n, int align);
 
 // main.c

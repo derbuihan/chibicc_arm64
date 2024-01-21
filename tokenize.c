@@ -377,7 +377,7 @@ static void add_line_numbers(Token *tok) {
   } while (*p++);
 }
 
-static Token *tokenize(File *file) {
+Token *tokenize(File *file) {
   current_file = file;
 
   char *p = file->contents;
@@ -503,7 +503,7 @@ static char *read_file(char *path) {
 
 File **get_input_files(void) { return input_files; }
 
-static File *new_file(char *name, int file_no, char *cotents) {
+File *new_file(char *name, int file_no, char *cotents) {
   File *file = calloc(1, sizeof(File));
   file->name = name;
   file->file_no = file_no;
