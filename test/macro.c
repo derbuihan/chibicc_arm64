@@ -8,6 +8,8 @@ int assert(int expected, int actual, char *code);
 
 int ret3(void) { return 3; }
 
+int dbl(int x) { return x * x; }
+
 int main() {
   assert(5, include1, "include1");
   assert(7, include2, "include2");
@@ -217,6 +219,10 @@ int main() {
 
 #define M8(x, y) x *y
   assert(12, M8((2, 3), 4), "M8((2,3), 4)");
+
+#define dbl(x) M10(x) * x
+#define M10(x) dbl(x) + 3
+  assert(10, dbl(2), "dbl(2)");
 
   return 0;
 }
