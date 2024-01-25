@@ -40,5 +40,7 @@ int main() {
   // ASSERT(255, "\x00ff"[0]);
   // ASSERT(255, "\x00\xff"[1]);
 
+  printf("OK\n");
+
   return 0;
 }

@@ -141,5 +141,7 @@ int main() {
            x[1][2][3];
          }));
 
+  printf("OK\n");
+
   return 0;
 }

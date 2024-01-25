@@ -83,5 +83,7 @@ int main() {
            _Alignof(x) << 63 >> 63;
          }));
 
+  printf("OK\n");
+
   return 0;
 }

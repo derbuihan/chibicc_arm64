@@ -19,5 +19,7 @@ int main() {
            *(const *const)&x;
          }));
 
+  printf("OK\n");
+
   return 0;
 }

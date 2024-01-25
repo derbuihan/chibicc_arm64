@@ -11,5 +11,7 @@ int main() {
   { int volatile *volatile volatile x; }
   { auto **restrict __restrict __restrict__ const volatile *x; }
 
+  printf("OK\n");
+
   return 0;
 }

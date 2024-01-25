@@ -170,5 +170,7 @@ int main() {
 
   ASSERT(11, param_decay2(ret11));
 
+  printf("OK\n");
+
   return 0;
 }

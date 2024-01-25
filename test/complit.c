@@ -27,5 +27,7 @@ int main() {
   ASSERT(3, tree->lhs->lhs->val);
   ASSERT(4, tree->lhs->rhs->val);
 
+  printf("OK\n");
+
   return 0;
 }

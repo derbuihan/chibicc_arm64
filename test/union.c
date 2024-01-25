@@ -66,5 +66,7 @@ int main() {
   // ASSERT(5, ({ union { struct { int a, b; } *c; } x, y; x.c->b = 3; y = x;
   // x.c->b = 5; y.c->b; }));
 
+  printf("OK\n");
+
   return 0;
 }

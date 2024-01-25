@@ -178,5 +178,7 @@ int main() {
   ASSERT(1, g40 == 1.5);
   ASSERT(1, g41 == 11);
 
+  printf("OK\n");
+
   return 0;
 }

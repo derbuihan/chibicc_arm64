@@ -315,5 +315,7 @@ int main() {
 #define M14(x) M13(x.M12)
   ASSERT(0, strcmp(M14(bar), "bar.foo"));
 
+  printf("OK\n");
+
   return 0;
 }

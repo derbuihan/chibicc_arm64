@@ -355,5 +355,7 @@ int main() {
            sizeof(T);
          }));
 
+  printf("OK\n");
+
   return 0;
 }

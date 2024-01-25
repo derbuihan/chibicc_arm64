@@ -16,5 +16,7 @@ int main() {
   extern int ext_fn2(int x);
   ASSERT(8, ext_fn2(8));
 
+  printf("OK\n");
+
   return 0;
 }

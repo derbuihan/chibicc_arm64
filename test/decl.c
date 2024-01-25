@@ -51,5 +51,7 @@ int main() {
   ASSERT(1, (_Bool)2);
   ASSERT(0, (_Bool)(char)256);
 
+  printf("OK\n");
+
   return 0;
 }

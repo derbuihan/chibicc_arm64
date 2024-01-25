@@ -48,5 +48,7 @@ int main() {
            sizeof(y);
          }));
 
+  printf("OK\n");
+
   return 0;
 }

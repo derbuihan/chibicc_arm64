@@ -468,5 +468,7 @@ int main() {
   ASSERT(0, strcmp(g65.b, "oo"));
   ASSERT(0, strcmp(g66.b, "oobar"));
 
+  printf("OK\n");
+
   return 0;
 }

@@ -45,5 +45,7 @@ int main() {
            sizeof(x);
          }));
 
+  printf("OK\n");
+
   return 0;
 }

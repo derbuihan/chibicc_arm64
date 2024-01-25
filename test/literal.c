@@ -101,5 +101,7 @@ int main() {
 of(char),
          "sizeof(char)");
 
+  printf("OK\n");
+
   return 0;
 }

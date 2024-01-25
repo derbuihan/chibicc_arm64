@@ -75,5 +75,7 @@ int main() {
   ASSERT(3, (float)3L);
   ASSERT(3, (double)3L);
 
+  printf("OK\n");
+
   return 0;
 }

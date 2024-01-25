@@ -583,5 +583,7 @@ int main() {
            j;
          }));
 
+  printf("OK\n");
+
   return 0;
 }

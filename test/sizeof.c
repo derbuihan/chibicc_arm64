@@ -111,5 +111,7 @@ int main() {
 
   ASSERT(8, sizeof(long double));
 
+  printf("OK\n");
+
   return 0;
 }

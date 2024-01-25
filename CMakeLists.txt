@@ -14,11 +14,13 @@ set(STAGE2_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
     set(STAGE2_OUTPUT_C_FILE "${STAGE2_OUTPUT_DIR}/${SRC_NAME}.c")
+    set(STAGE2_OUTPUT_S_FILE "${STAGE2_OUTPUT_DIR}/${SRC_NAME}.s")
     set(STAGE2_OUTPUT_OBJ_FILE "${STAGE2_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE2_OUTPUT_OBJ_FILE}
             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE2_OUTPUT_C_FILE}
-            COMMAND ./chibicc -c -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_C_FILE}
+            COMMAND ./chibicc -c -S -o ${STAGE2_OUTPUT_S_FILE} ${STAGE2_OUTPUT_C_FILE}
+            COMMAND ./chibicc -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
             DEPENDS chibicc ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
     )
     list(APPEND STAGE2_OUTPUT_FILES ${STAGE2_OUTPUT_OBJ_FILE})
@@ -37,11 +39,13 @@ set(STAGE3_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
     set(STAGE3_OUTPUT_C_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.c")
+    set(STAGE3_OUTPUT_S_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.s")
     set(STAGE3_OUTPUT_OBJ_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE3_OUTPUT_C_FILE}
-            COMMAND ./chibicc2 -c -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_C_FILE}
+            COMMAND ./chibicc2 -c -S -o ${STAGE3_OUTPUT_S_FILE} ${STAGE3_OUTPUT_C_FILE}
+            COMMAND ./chibicc2 -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
             DEPENDS chibicc2 ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
     )
     list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
@@ -62,11 +66,13 @@ file(MAKE_DIRECTORY ${TEST_OUTPUT_DIR})
 add_test(NAME driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc)
 foreach (TEST_SRC ${TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    set(TEST_OUTPUT_S_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.s")
     set(TEST_OUTPUT_OBJ_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.o")
     set(TEST_OUTPUT_EXE_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             ${TEST_NAME} ALL
-            COMMAND ./chibicc -c -o ${TEST_OUTPUT_OBJ_FILE} ${TEST_SRC}
+            COMMAND ./chibicc -c -S -o ${TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc -o ${TEST_OUTPUT_OBJ_FILE} ${TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${TEST_OUTPUT_EXE_FILE} ${TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc ${TEST_SRC}
     )
@@ -80,11 +86,13 @@ file(MAKE_DIRECTORY ${STAGE2_TEST_OUTPUT_DIR})
 add_test(NAME stage2_driver COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/driver.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2)
 foreach (TEST_SRC ${TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    set(STAGE2_TEST_OUTPUT_S_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.s")
     set(STAGE2_TEST_OUTPUT_OBJ_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.o")
     set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             stage2_${TEST_NAME} ALL
-            COMMAND ./chibicc2 -c -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} ${TEST_SRC}
+            COMMAND ./chibicc2 -c -S -o ${STAGE2_TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc2 -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} ${STAGE2_TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc2 ${TEST_SRC}
     )

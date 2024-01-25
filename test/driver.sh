@@ -56,6 +56,44 @@ echo 'int y;' > $tmp/bar.c
 [ -f $tmp/foo.s ] && [ -f $tmp/bar.s ]
 check "multiple input files"
 
+# Named output file
+rm -f $tmp/out.o
+echo 'int main() {}' > $tmp/out.c
+(cd $tmp; $chibicc -c -o out.o out.c)
+[ -f $tmp/out.o ]
+check "named output file"
+
+rm -f $tmp/out.s
+echo 'int main() {}' > $tmp/out.c
+(cd $tmp; $chibicc -c -S -o out.s out.c)
+[ -f $tmp/out.s ]
+check "named output file"
+
+# assembly
+rm -f $tmp/out.o
+cat <<EOF > $tmp/out.s
+.text
+.global _main
+_main:
+  mov x0, 42
+  ret
+EOF
+$chibicc $tmp/out.s -o $tmp/out.o
+[ -f $tmp/out.o ]
+check "assembly"
+
+rm -f $tmp/out.o
+cat <<EOF > $tmp/out.s
+.text
+.global _main
+_main:
+  mov x0, 42
+  ret
+EOF
+(cd $tmp; $chibicc out.s)
+[ -f $tmp/out.o ]
+check "assembly"
+
 # Run linker
 rm -f $tmp/foo
 echo 'int main() { return 0; }' | $chibicc -o $tmp/foo -
