@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.27)
 project(chibicc C)
 set(CMAKE_C_STANDARD 17)
 
@@ -45,7 +45,7 @@ foreach (SRC ${SRCS})
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE3_OUTPUT_C_FILE}
             COMMAND ./chibicc2 -c -S -o ${STAGE3_OUTPUT_S_FILE} ${STAGE3_OUTPUT_C_FILE}
-            COMMAND ./chibicc2 -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
+            COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_S_FILE}
             DEPENDS chibicc2 ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
     )
     list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
