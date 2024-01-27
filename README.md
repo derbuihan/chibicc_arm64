@@ -26,8 +26,11 @@ $ ./tmp
 
 Usage:
 
+* `-o <file>` : Output file name
 * `-S` : Generate assembly code
-* `-o` : Output file name
+* `-c` : Generate object file
+* `-E` : Generate preprocessed code
+* `-I <dir>` : Add include path
 
 ## Test
 
