@@ -1,5 +1,7 @@
 #include "chibicc.h"
 
+StringArray include_paths;
+
 static bool opt_E;
 static bool opt_S;
 static bool opt_c;
@@ -18,7 +20,15 @@ static void usage(int status) {
   exit(status);
 }
 
-static bool take_arg(char *arg) { return !strcmp(arg, "-o"); }
+static bool take_arg(char *arg) {
+  char *x[] = {"-o", "-I"};
+  for (int i = 0; i < sizeof(x) / sizeof(*x); i++) {
+    if (!strcmp(arg, x[i])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 static void parse_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
@@ -66,6 +76,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-E")) {
       opt_E = true;
+      continue;
+    }
+
+    if (!strncmp(argv[i], "-I", 2)) {
+      strarray_push(&include_paths, argv[i] + 2);
       continue;
     }
 

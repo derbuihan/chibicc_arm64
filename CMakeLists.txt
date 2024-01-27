@@ -71,7 +71,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(TEST_OUTPUT_EXE_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             ${TEST_NAME} ALL
-            COMMAND ./chibicc -c -S -o ${TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc -I../test -c -S -o ${TEST_OUTPUT_S_FILE} ${TEST_SRC}
             COMMAND ./chibicc -o ${TEST_OUTPUT_OBJ_FILE} ${TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${TEST_OUTPUT_EXE_FILE} ${TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc ${TEST_SRC}
@@ -91,7 +91,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             stage2_${TEST_NAME} ALL
-            COMMAND ./chibicc2 -c -S -o ${STAGE2_TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc2 -I../test -c -S -o ${STAGE2_TEST_OUTPUT_S_FILE} ${TEST_SRC}
             COMMAND ./chibicc2 -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} ${STAGE2_TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc2 ${TEST_SRC}
