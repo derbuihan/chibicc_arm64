@@ -745,6 +745,11 @@ static Token *preprocess2(Token *tok) {
       continue;
     }
 
+    if (equal(tok, "warning")) {
+      tok = skip_line(tok->next->next);
+      continue;
+    }
+
     if (equal(tok, "error")) {
       error_tok(tok, "error");
     }

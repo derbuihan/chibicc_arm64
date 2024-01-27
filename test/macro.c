@@ -5,6 +5,8 @@
 
 /* */ #
 
+#warning "foo"
+
 int ret3(void) { return 3; }
 
 int dbl(int x) { return x * x; }
