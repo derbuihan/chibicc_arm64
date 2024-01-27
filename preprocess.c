@@ -745,6 +745,10 @@ static Token *preprocess2(Token *tok) {
       continue;
     }
 
+    if (equal(tok, "error")) {
+      error_tok(tok, "error");
+    }
+
     if (tok->at_bol) {
       continue;
     }
