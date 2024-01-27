@@ -124,4 +124,10 @@ echo "#include \"$tmp/out1\"" | $chibicc -E -o $tmp/out2 -
 cat $tmp/out2 | grep -q "bar"
 check "-E and -o"
 
+# -I
+mkdir $tmp/dir
+echo "foo" > $tmp/dir/i-option-test
+echo "#include \"i-option-test\"" | $chibicc -I$tmp/dir -E - | grep -q "foo"
+check "-I"
+
 echo OK

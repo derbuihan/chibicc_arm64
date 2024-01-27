@@ -30,6 +30,10 @@ static bool take_arg(char *arg) {
   return false;
 }
 
+static void add_default_include_paths(char *argv0) {
+  strarray_push(&include_paths, format("%s/include", dirname(strdup(argv0))));
+}
+
 static void parse_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (take_arg(argv[i])) {
@@ -260,6 +264,7 @@ int main(int argc, char **argv) {
   parse_args(argc, argv);
 
   if (opt_cc1) {
+    add_default_include_paths(argv[0]);
     cc1();
     return 0;
   }
