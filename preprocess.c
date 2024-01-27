@@ -760,7 +760,32 @@ static Token *preprocess2(Token *tok) {
   return head.next;
 }
 
+static void define_macro(char *name, char *buf) {
+  Token *tok = tokenize(new_file("<built-in>", 1, buf));
+  add_macro(name, true, tok);
+}
+
+static void init_macros(void) {
+  define_macro("_LP64", "1");
+  define_macro("__C99_MACRO_WITH_VA_ARGS", "1");
+  define_macro("__ELF__", "1");
+  define_macro("__LP64__", "1");
+  define_macro("__SIZEOF_DOUBLE__", "8");
+  define_macro("__SIZEOF_FLOAT__", "4");
+  define_macro("__SIZEOF_INT__", "4");
+  define_macro("__SIZEOF_LONG_DOUBLE__", "8");
+  define_macro("__SIZEOF_LONG_LONG__", "8");
+  define_macro("__SIZEOF_LONG__", "8");
+  define_macro("__SIZEOF_POINTER__", "8");
+  define_macro("__SIZEOF_PTRDIFF_T__", "8");
+  define_macro("__SIZEOF_SHORT__", "2");
+  define_macro("__SIZEOF_SIZE_T__", "8");
+  define_macro("__SIZE_TYPE__", "long unsigned int");
+  define_macro("__STDC__", "1");
+}
+
 Token *preprocess(Token *tok) {
+  init_macros();
   tok = preprocess2(tok);
   if (cond_incl) {
     error_tok(cond_incl->tok, "unterminated conditional directive");
