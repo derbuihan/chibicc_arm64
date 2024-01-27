@@ -830,6 +830,39 @@ static void init_macros(void) {
   define_macro("__arm64__", "1");
 }
 
+static void join_adjacent_string_literals(Token *tok1) {
+  while (tok1->kind != TK_EOF) {
+    if (tok1->kind != TK_STR || tok1->next->kind != TK_STR) {
+      tok1 = tok1->next;
+      continue;
+    }
+
+    Token *tok2 = tok1->next;
+    while (tok2->kind == TK_STR) {
+      tok2 = tok2->next;
+    }
+
+    int len = tok1->ty->array_len;
+    for (Token *t = tok1->next; t != tok2; t = t->next) {
+      len = len + t->ty->array_len - 1;
+    }
+
+    char *buf = calloc(tok1->ty->base->size, len);
+
+    int i = 0;
+    for (Token *t = tok1; t != tok2; t = t->next) {
+      memcpy(buf + i, t->str, t->ty->size);
+      i = i + t->ty->size - t->ty->base->size;
+    }
+
+    *tok1 = *copy_token(tok1);
+    tok1->ty = array_of(tok1->ty->base, len);
+    tok1->str = buf;
+    tok1->next = tok2;
+    tok1 = tok2;
+  }
+}
+
 Token *preprocess(Token *tok) {
   init_macros();
   tok = preprocess2(tok);
@@ -837,5 +870,6 @@ Token *preprocess(Token *tok) {
     error_tok(cond_incl->tok, "unterminated conditional directive");
   }
   convert_keywords(tok);
+  join_adjacent_string_literals(tok);
   return tok;
 }
