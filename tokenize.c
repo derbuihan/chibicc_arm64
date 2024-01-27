@@ -228,8 +228,8 @@ static bool is_keyword(Token *tok) {
   return false;
 }
 
-static Token *read_char_literal(char *start) {
-  char *p = start + 1;
+static Token *read_char_literal(char *start, char *quote) {
+  char *p = quote + 1;
   if (*p == '\0') {
     error_at(start, "unclosed char literal");
   }
@@ -433,8 +433,14 @@ Token *tokenize(File *file) {
     }
 
     if (*p == '\'') {
-      cur = cur->next = read_char_literal(p);
+      cur = cur->next = read_char_literal(p, p);
       p += cur->len;
+      continue;
+    }
+
+    if (startswith(p, "L'")) {
+      cur = cur->next = read_char_literal(p, p + 1);
+      p = cur->loc + cur->len;
       continue;
     }
 
