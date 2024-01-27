@@ -73,6 +73,8 @@ int param_decay2(int x()) { return x(); }
 
 char *func_fn(void) { return __func__; }
 
+char *function_fn(void) { return __FUNCTION__; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -175,6 +177,8 @@ int main() {
   ASSERT(5, sizeof(__func__));
   ASSERT(0, strcmp("main", __func__));
   ASSERT(0, strcmp("func_fn", func_fn()));
+  ASSERT(0, strcmp("main", __FUNCTION__));
+  ASSERT(0, strcmp("function_fn", function_fn()));
 
   printf("OK\n");
 
