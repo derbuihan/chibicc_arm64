@@ -19,6 +19,7 @@ struct Macro {
   char *name;
   bool is_objlike;
   MacroParam *params;
+  bool is_variadic;
   Token *body;
   bool deleted;
 };
@@ -311,7 +312,8 @@ static Macro *add_macro(char *name, bool is_objlike, Token *body) {
   return m;
 }
 
-static MacroParam *read_macro_params(Token **rest, Token *tok) {
+static MacroParam *read_macro_params(Token **rest, Token *tok,
+                                     bool *is_variadic) {
   MacroParam head = {};
   MacroParam *cur = &head;
 
@@ -319,6 +321,14 @@ static MacroParam *read_macro_params(Token **rest, Token *tok) {
     if (cur != &head) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ','
+    }
+
+    if (equal(tok, "...")) {
+      *is_variadic = true;
+      tok = tok->next;  // skip '...'
+      assert(equal(tok, ")"));
+      *rest = tok->next;  // skip ')'
+      return head.next;
     }
 
     if (tok->kind != TK_IDENT) {
@@ -342,20 +352,29 @@ static void read_macro_definition(Token **rest, Token *tok) {
   tok = tok->next;
 
   if (!tok->has_space && equal(tok, "(")) {
-    MacroParam *params = read_macro_params(&tok, tok->next);
+    bool is_variadic = false;
+    MacroParam *params = read_macro_params(&tok, tok->next, &is_variadic);
     Macro *m = add_macro(name, false, copy_line(rest, tok));
     m->params = params;
+    m->is_variadic = is_variadic;
   } else {
     add_macro(name, true, copy_line(rest, tok));
   }
 }
 
-static MacroArg *read_macro_arg_one(Token **rest, Token *tok) {
+static MacroArg *read_macro_arg_one(Token **rest, Token *tok, bool read_rest) {
   Token head = {};
   Token *cur = &head;
   int level = 0;
 
-  while (level > 0 || (!equal(tok, ",") && !equal(tok, ")"))) {
+  for (;;) {
+    if (level == 0 && equal(tok, ")")) {
+      break;
+    }
+    if (level == 0 && !read_rest && equal(tok, ",")) {
+      break;
+    }
+
     if (tok->kind == TK_EOF) {
       error_tok(tok, "premature end of input");
     }
@@ -378,7 +397,8 @@ static MacroArg *read_macro_arg_one(Token **rest, Token *tok) {
   return arg;
 }
 
-static MacroArg *read_macro_args(Token **rest, Token *tok, MacroParam *params) {
+static MacroArg *read_macro_args(Token **rest, Token *tok, MacroParam *params,
+                                 bool is_variadic) {
   Token *start = tok;
   tok = tok->next->next;
 
@@ -391,11 +411,29 @@ static MacroArg *read_macro_args(Token **rest, Token *tok, MacroParam *params) {
       assert(equal(tok, ","));
       tok = tok->next;  // skip ','
     }
-    cur = cur->next = read_macro_arg_one(&tok, tok);
+    cur = cur->next = read_macro_arg_one(&tok, tok, false);
     cur->name = pp->name;
   }
 
   if (pp) {
+    error_tok(start, "too few arguments");
+  }
+
+  if (is_variadic) {
+    MacroArg *arg;
+    if (equal(tok, ")")) {
+      arg = calloc(1, sizeof(MacroArg));
+      arg->tok = new_eof(tok);
+    } else {
+      if (pp != params) {
+        assert(equal(tok, ","));
+        tok = tok->next;  // skip ','
+      }
+      arg = read_macro_arg_one(&tok, tok, true);
+    }
+    arg->name = "__VA_ARGS__";
+    cur = cur->next = arg;
+  } else if (pp) {
     error_tok(start, "too few arguments");
   }
 
@@ -562,7 +600,7 @@ static bool expand_macro(Token **rest, Token *tok) {
   }
 
   Token *macro_token = tok;
-  MacroArg *args = read_macro_args(&tok, tok, m->params);
+  MacroArg *args = read_macro_args(&tok, tok, m->params, m->is_variadic);
   Token *rparen = tok;
 
   Hideset *hs = hideset_intersection(macro_token->hideset, rparen->hideset);
@@ -787,6 +825,9 @@ static void init_macros(void) {
   define_macro("__SIZEOF_SIZE_T__", "8");
   define_macro("__SIZE_TYPE__", "long unsigned int");
   define_macro("__STDC__", "1");
+  define_macro("__aarch64__", "1");
+  define_macro("__arm64", "1");
+  define_macro("__arm64__", "1");
 }
 
 Token *preprocess(Token *tok) {

@@ -32,6 +32,11 @@ static bool take_arg(char *arg) {
 
 static void add_default_include_paths(char *argv0) {
   strarray_push(&include_paths, format("%s/include", dirname(strdup(argv0))));
+  strarray_push(
+      &include_paths,
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include");
+  strarray_push(&include_paths,
+                "/opt/homebrew/Cellar/llvm/17.0.6_1/lib/clang/17/include");
 }
 
 static void parse_args(int argc, char **argv) {
