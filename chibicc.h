@@ -315,4 +315,6 @@ int align_to(int n, int align);
 
 // main.c
 
+bool file_exists(char *path);
+
 extern char *base_file;

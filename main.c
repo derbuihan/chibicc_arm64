@@ -220,6 +220,11 @@ static void assemble(char *input, char *output) {
   run_subprocess(cmd);
 }
 
+bool file_exists(char *path) {
+  struct stat st;
+  return !stat(path, &st);
+}
+
 static void run_linker(StringArray *inputs, char *output) {
   StringArray arr = {};
 
