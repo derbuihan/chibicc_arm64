@@ -71,6 +71,8 @@ double add_double3(double x, double y, double z) { return x + y + z; }
 int (*fnptr(int (*fn)(int n, ...)))(int, ...) { return fn; }
 int param_decay2(int x()) { return x(); }
 
+char *func_fn(void) { return __func__; }
+
 int main() {
   ASSERT(11, ret11());
   ASSERT(33, add11(22));
@@ -169,6 +171,10 @@ int main() {
   ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
   ASSERT(11, param_decay2(ret11));
+
+  ASSERT(5, sizeof(__func__));
+  ASSERT(0, strcmp("main", __func__));
+  ASSERT(0, strcmp("func_fn", func_fn()));
 
   printf("OK\n");
 
