@@ -110,9 +110,9 @@ static void parse_args(int argc, char **argv) {
     strarray_push(&input_paths, argv[i]);
   }
 
-  if (input_paths.len == 0) {
-    error("no input files");
-  }
+  //  if (input_paths.len == 0) {
+  //    error("no input files");
+  //  }
 }
 
 static FILE *open_file(char *path) {

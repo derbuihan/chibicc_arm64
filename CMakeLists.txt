@@ -10,12 +10,6 @@ add_executable(chibicc ${SRCS})
 set(STAGE2_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage2")
 file(MAKE_DIRECTORY ${STAGE2_OUTPUT_DIR})
 
-add_custom_command(
-        OUTPUT ${STAGE2_OUTPUT_DIR}/chibicc.h
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h > ${STAGE2_OUTPUT_DIR}/chibicc.h
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${CMAKE_CURRENT_SOURCE_DIR}/self.py
-)
-
 set(STAGE2_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
@@ -24,8 +18,7 @@ foreach (SRC ${SRCS})
     set(STAGE2_OUTPUT_OBJ_FILE "${STAGE2_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE2_OUTPUT_OBJ_FILE}
-            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self2.py ${SRC} > ${STAGE2_OUTPUT_C_FILE}
-            COMMAND ./chibicc -c -S -o ${STAGE2_OUTPUT_S_FILE} ${STAGE2_OUTPUT_C_FILE}
+            COMMAND ./chibicc -I../include -c -S -o ${STAGE2_OUTPUT_S_FILE} ${SRC}
             COMMAND ./chibicc -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
             DEPENDS chibicc ${STAGE2_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
     )
@@ -41,12 +34,6 @@ add_dependencies(chibicc2 stage2)
 set(STAGE3_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage3")
 file(MAKE_DIRECTORY ${STAGE3_OUTPUT_DIR})
 
-add_custom_command(
-        OUTPUT ${STAGE3_OUTPUT_DIR}/chibicc.h
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h > ${STAGE3_OUTPUT_DIR}/chibicc.h
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${CMAKE_CURRENT_SOURCE_DIR}/self.py
-)
-
 set(STAGE3_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
@@ -55,8 +42,7 @@ foreach (SRC ${SRCS})
     set(STAGE3_OUTPUT_OBJ_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
-            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self2.py ${SRC} > ${STAGE3_OUTPUT_C_FILE}
-            COMMAND ./chibicc2 -c -S -o ${STAGE3_OUTPUT_S_FILE} ${STAGE3_OUTPUT_C_FILE}
+            COMMAND ./chibicc2 -I../include -c -S -o ${STAGE3_OUTPUT_S_FILE} ${SRC}
             COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_S_FILE}
             DEPENDS chibicc2 ${STAGE3_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
     )
