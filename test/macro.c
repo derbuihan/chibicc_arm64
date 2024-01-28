@@ -1,6 +1,11 @@
 #include "include1.h"
 #include "test.h"
 
+char *main_filename = __FILE__;
+int main_line1 = __LINE__;
+#define LINE() __LINE__
+int main_line2 = LINE();
+
 #
 
 /* */ #
@@ -359,6 +364,12 @@ int main() {
 
 #define M14(x, ...) x
   ASSERT(5, M14(5));
+
+  ASSERT(0, strcmp(basename(main_filename), "macro.c"));
+  ASSERT(5, main_line1);
+  ASSERT(7, main_line2);
+  ASSERT(0, strcmp(basename(include1_filename), "include1.h"));
+  ASSERT(4, include1_line);
 
   printf("OK\n");
 

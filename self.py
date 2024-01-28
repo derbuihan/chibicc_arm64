@@ -3,16 +3,6 @@ import re
 import sys
 
 print("""
-typedef signed char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long int64_t;
-typedef unsigned long size_t;
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long uint64_t;
 
 typedef unsigned long size_t;
 
@@ -21,14 +11,7 @@ extern FILE *__stdinp;
 extern FILE *__stdoutp;
 extern FILE *__stderrp;
 
-typedef struct {
-  int gp_offset;
-  int fp_offset;
-  void *overflow_arg_area;
-  void *reg_save_area;
-} __va_elem;
-
-typedef __va_elem va_list[1];
+typedef void va_list;
 
 struct stat {
   char _[512];
@@ -92,30 +75,12 @@ int execvp(char *file, char **argv);
 void _exit(int code);
 int wait(int *wstatus);
 int atexit(void (*)(void));
-FILE *open_memstream(char **ptr, size_t *sizeloc);
-char *dirname(char *path);
 char *strncpy(char *dest, char *src, long n);
-int stat(char *pathname, struct stat *statbuf);
 """)
 
 for path in sys.argv[1:]:
     with open(path) as file:
         s = file.read()
-        s = re.sub(r'\\\n', '', s)
-        # s = re.sub(r'^\s*#.*', '', s, flags=re.MULTILINE)
-        s = re.sub(r'"\n\s*"', '', s)
-        s = re.sub(r'\bbool\b', '_Bool', s)
-        # s = re.sub(r'\berrno\b', '(*__error())', s)
-        s = re.sub(r'\btrue\b', '1', s)
-        s = re.sub(r'\bfalse\b', '0', s)
-        s = re.sub(r'\bNULL\b', '0', s)
-        s = re.sub(r'\bva_list ([^;]*)', 'va_list *\\1', s)
-        s = re.sub(r'\bva_start\(([^)]*),([^)]*)\)', '\\1 = __va_area__', s)
-        # s = re.sub(r'\bunreachable\(\)', 'error("unreachable")', s)
-        # s = re.sub(r'\bMIN\(([^)]*),([^)]*)\)', '((\\1)<(\\2)?(\\1):(\\2))', s)
-        s = re.sub(r'\bstdin\b', '__stdinp', s)
-        s = re.sub(r'\bstdout\b', '__stdoutp', s)
-        s = re.sub(r'\bstderr\b', '__stderrp', s)
 
         s = re.sub(r'^#include <assert.h>\n?', '', s, flags=re.MULTILINE)
         s = re.sub(r'^#include <glob.h>\n?', '', s, flags=re.MULTILINE)

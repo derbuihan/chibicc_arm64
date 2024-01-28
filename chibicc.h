@@ -68,6 +68,7 @@ struct Token {
   bool at_bol;       // True if this token is at beginning of line
   bool has_space;    // True if this token follows a space character
   Hideset *hideset;  // For macro expansion
+  Token *origin;     // If this is expanded from a macro, the original token
 };
 
 void error(char *fmt, ...);
@@ -81,8 +82,8 @@ Token *tokenize(File *file);
 File *new_file(char *name, int file_no, char *contents);
 Token *tokenize_file(char *path);
 
-// #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
-#define unreachable() error("internal error");
+#define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
+// #define unreachable() error("internal error");
 
 // preprocess
 
