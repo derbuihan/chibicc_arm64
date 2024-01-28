@@ -45,7 +45,7 @@ char *dirname(char *path);
 int strcmp(char *s1, char *s2);
 int strncasecmp(char *s1, char *s2, long n);
 int memcmp(char *s1, char *s2, long n);
-int printf(char *fmt, ...);
+// int printf(char *fmt, ...);
 int sprintf(char *buf, char *fmt, ...);
 int fprintf(FILE *fp, char *fmt, ...);
 int vfprintf(FILE *fp, char *fmt, va_list ap);
@@ -82,7 +82,7 @@ for path in sys.argv[1:]:
     with open(path) as file:
         s = file.read()
 
-        s = re.sub(r'^#include <assert.h>\n?', '', s, flags=re.MULTILINE)
+        # s = re.sub(r'^#include <assert.h>\n?', '', s, flags=re.MULTILINE)
         s = re.sub(r'^#include <glob.h>\n?', '', s, flags=re.MULTILINE)
         s = re.sub(r'^#include <stdarg.h>\n?', '', s, flags=re.MULTILINE)
         s = re.sub(r'^#include <stdio.h>\n?', '', s, flags=re.MULTILINE)
