@@ -81,7 +81,8 @@ Token *tokenize(File *file);
 File *new_file(char *name, int file_no, char *contents);
 Token *tokenize_file(char *path);
 
-#define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
+// #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__);
+#define unreachable() error("internal error");
 
 // preprocess
 

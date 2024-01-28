@@ -10,6 +10,12 @@ add_executable(chibicc ${SRCS})
 set(STAGE2_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage2")
 file(MAKE_DIRECTORY ${STAGE2_OUTPUT_DIR})
 
+add_custom_command(
+        OUTPUT ${STAGE2_OUTPUT_DIR}/chibicc.h
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h > ${STAGE2_OUTPUT_DIR}/chibicc.h
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${CMAKE_CURRENT_SOURCE_DIR}/self.py
+)
+
 set(STAGE2_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
@@ -18,10 +24,10 @@ foreach (SRC ${SRCS})
     set(STAGE2_OUTPUT_OBJ_FILE "${STAGE2_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE2_OUTPUT_OBJ_FILE}
-            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE2_OUTPUT_C_FILE}
+            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self2.py ${SRC} > ${STAGE2_OUTPUT_C_FILE}
             COMMAND ./chibicc -c -S -o ${STAGE2_OUTPUT_S_FILE} ${STAGE2_OUTPUT_C_FILE}
             COMMAND ./chibicc -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
-            DEPENDS chibicc ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
+            DEPENDS chibicc ${STAGE2_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
     )
     list(APPEND STAGE2_OUTPUT_FILES ${STAGE2_OUTPUT_OBJ_FILE})
 endforeach ()
@@ -35,6 +41,12 @@ add_dependencies(chibicc2 stage2)
 set(STAGE3_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/stage3")
 file(MAKE_DIRECTORY ${STAGE3_OUTPUT_DIR})
 
+add_custom_command(
+        OUTPUT ${STAGE3_OUTPUT_DIR}/chibicc.h
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h > ${STAGE3_OUTPUT_DIR}/chibicc.h
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${CMAKE_CURRENT_SOURCE_DIR}/self.py
+)
+
 set(STAGE3_OUTPUT_FILES "")
 foreach (SRC ${SRCS})
     get_filename_component(SRC_NAME ${SRC} NAME_WE)
@@ -43,10 +55,10 @@ foreach (SRC ${SRCS})
     set(STAGE3_OUTPUT_OBJ_FILE "${STAGE3_OUTPUT_DIR}/${SRC_NAME}.o")
     add_custom_command(
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
-            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self.py ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} > ${STAGE3_OUTPUT_C_FILE}
+            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/self2.py ${SRC} > ${STAGE3_OUTPUT_C_FILE}
             COMMAND ./chibicc2 -c -S -o ${STAGE3_OUTPUT_S_FILE} ${STAGE3_OUTPUT_C_FILE}
             COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_S_FILE}
-            DEPENDS chibicc2 ${CMAKE_CURRENT_SOURCE_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self.py
+            DEPENDS chibicc2 ${STAGE3_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
     )
     list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
 endforeach ()
@@ -71,7 +83,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(TEST_OUTPUT_EXE_FILE "${TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             ${TEST_NAME} ALL
-            COMMAND ./chibicc -I../test -c -S -o ${TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc -I../test -I../include -c -S -o ${TEST_OUTPUT_S_FILE} ${TEST_SRC}
             COMMAND ./chibicc -o ${TEST_OUTPUT_OBJ_FILE} ${TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${TEST_OUTPUT_EXE_FILE} ${TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc ${TEST_SRC}
@@ -91,7 +103,7 @@ foreach (TEST_SRC ${TEST_SRCS})
     set(STAGE2_TEST_OUTPUT_EXE_FILE "${STAGE2_TEST_OUTPUT_DIR}/${TEST_NAME}.exe")
     add_custom_target(
             stage2_${TEST_NAME} ALL
-            COMMAND ./chibicc2 -I../test -c -S -o ${STAGE2_TEST_OUTPUT_S_FILE} ${TEST_SRC}
+            COMMAND ./chibicc2 -I../test -I../include -c -S -o ${STAGE2_TEST_OUTPUT_S_FILE} ${TEST_SRC}
             COMMAND ./chibicc2 -o ${STAGE2_TEST_OUTPUT_OBJ_FILE} ${STAGE2_TEST_OUTPUT_S_FILE}
             COMMAND clang -o ${STAGE2_TEST_OUTPUT_EXE_FILE} ${STAGE2_TEST_OUTPUT_OBJ_FILE} -x c ${CMAKE_CURRENT_SOURCE_DIR}/test/common
             DEPENDS chibicc2 ${TEST_SRC}

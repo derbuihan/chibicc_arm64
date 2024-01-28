@@ -71,7 +71,6 @@ int strncmp(char *p, char *q, long n);
 void *memcpy(char *dst, char *src, long n);
 char *strdup(char *p);
 char *strndup(char *p, long n);
-char *strdup(char *p);
 int isspace(int c);
 int ispunct(int c);
 int isdigit(int c);
@@ -97,26 +96,37 @@ FILE *open_memstream(char **ptr, size_t *sizeloc);
 char *dirname(char *path);
 char *strncpy(char *dest, char *src, long n);
 int stat(char *pathname, struct stat *statbuf);
-int stat(char *pathname, struct stat *statbuf);
-char *dirname(char *path);
 """)
 
 for path in sys.argv[1:]:
     with open(path) as file:
         s = file.read()
         s = re.sub(r'\\\n', '', s)
-        s = re.sub(r'^\s*#.*', '', s, flags=re.MULTILINE)
+        # s = re.sub(r'^\s*#.*', '', s, flags=re.MULTILINE)
         s = re.sub(r'"\n\s*"', '', s)
         s = re.sub(r'\bbool\b', '_Bool', s)
-        s = re.sub(r'\berrno\b', '(*__error())', s)
+        # s = re.sub(r'\berrno\b', '(*__error())', s)
         s = re.sub(r'\btrue\b', '1', s)
         s = re.sub(r'\bfalse\b', '0', s)
         s = re.sub(r'\bNULL\b', '0', s)
         s = re.sub(r'\bva_list ([^;]*)', 'va_list *\\1', s)
         s = re.sub(r'\bva_start\(([^)]*),([^)]*)\)', '\\1 = __va_area__', s)
-        s = re.sub(r'\bunreachable\(\)', 'error("unreachable")', s)
-        s = re.sub(r'\bMIN\(([^)]*),([^)]*)\)', '((\\1)<(\\2)?(\\1):(\\2))', s)
+        # s = re.sub(r'\bunreachable\(\)', 'error("unreachable")', s)
+        # s = re.sub(r'\bMIN\(([^)]*),([^)]*)\)', '((\\1)<(\\2)?(\\1):(\\2))', s)
         s = re.sub(r'\bstdin\b', '__stdinp', s)
         s = re.sub(r'\bstdout\b', '__stdoutp', s)
         s = re.sub(r'\bstderr\b', '__stderrp', s)
+
+        s = re.sub(r'^#include <assert.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <glob.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <stdarg.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <stdio.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <stdlib.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <string.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <strings.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <sys/stat.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <sys/types.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <sys/wait.h>\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'^#include <unistd.h>\n?', '', s, flags=re.MULTILINE)
+
         print(s)
