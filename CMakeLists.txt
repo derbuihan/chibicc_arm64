@@ -20,7 +20,7 @@ foreach (SRC ${SRCS})
             OUTPUT ${STAGE2_OUTPUT_OBJ_FILE}
             COMMAND ./chibicc -I../include -c -S -o ${STAGE2_OUTPUT_S_FILE} ${SRC}
             COMMAND ./chibicc -o ${STAGE2_OUTPUT_OBJ_FILE} ${STAGE2_OUTPUT_S_FILE}
-            DEPENDS chibicc ${STAGE2_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
+            DEPENDS chibicc ${SRC}
     )
     list(APPEND STAGE2_OUTPUT_FILES ${STAGE2_OUTPUT_OBJ_FILE})
 endforeach ()
@@ -44,7 +44,7 @@ foreach (SRC ${SRCS})
             OUTPUT ${STAGE3_OUTPUT_OBJ_FILE}
             COMMAND ./chibicc2 -I../include -c -S -o ${STAGE3_OUTPUT_S_FILE} ${SRC}
             COMMAND ./chibicc2 -o ${STAGE3_OUTPUT_OBJ_FILE} ${STAGE3_OUTPUT_S_FILE}
-            DEPENDS chibicc2 ${STAGE3_OUTPUT_DIR}/chibicc.h ${SRC} ${CMAKE_CURRENT_SOURCE_DIR}/self2.py
+            DEPENDS chibicc2 ${SRC}
     )
     list(APPEND STAGE3_OUTPUT_FILES ${STAGE3_OUTPUT_OBJ_FILE})
 endforeach ()
@@ -98,7 +98,6 @@ foreach (TEST_SRC ${TEST_SRCS})
 endforeach ()
 
 # compare stage2 and stage3
-add_test(
-        NAME compare_stage2_stage3
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/compare.sh ${CMAKE_CURRENT_BINARY_DIR}/chibicc2 ${CMAKE_CURRENT_BINARY_DIR}/chibicc3
-)
+add_custom_target(stage2_bin ALL COMMAND ./chibicc -I../include -o ${STAGE2_OUTPUT_DIR}/chibicc ${SRCS} DEPENDS chibicc ${SRCS})
+add_custom_target(stage3_bib ALL COMMAND ./stage2/chibicc -I../include -o ${STAGE3_OUTPUT_DIR}/chibicc ${SRCS} DEPENDS stage2_bin ${SRCS})
+add_test(NAME compare_stage2_stage3 COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/compare.sh ${STAGE2_OUTPUT_DIR}/chibicc ${STAGE3_OUTPUT_DIR}/chibicc)

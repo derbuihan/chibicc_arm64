@@ -1,8 +1,8 @@
-#include <stdarg.h>
-#include <stddef.h>
-
 #ifndef __STDIO_H
 #define __STDIO_H
+
+#include <stdarg.h>
+#include <stddef.h>
 
 typedef struct FILE FILE;
 

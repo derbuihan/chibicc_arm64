@@ -35,8 +35,6 @@ static void add_default_include_paths(char *argv0) {
   strarray_push(
       &include_paths,
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include");
-  strarray_push(&include_paths,
-                "/opt/homebrew/Cellar/llvm/17.0.6_1/lib/clang/17/include");
 }
 
 static void parse_args(int argc, char **argv) {
@@ -110,9 +108,9 @@ static void parse_args(int argc, char **argv) {
     strarray_push(&input_paths, argv[i]);
   }
 
-  //  if (input_paths.len == 0) {
-  //    error("no input files");
-  //  }
+  if (input_paths.len == 0) {
+    error("no input files");
+  }
 }
 
 static FILE *open_file(char *path) {
@@ -240,7 +238,7 @@ static void cc1(void) {
 }
 
 static void assemble(char *input, char *output) {
-  char *cmd[] = {"as", "-c", input, "-o", output, NULL};
+  char *cmd[] = {"clang", "-x", "assembler", input, "-c", "-o", output, NULL};
   run_subprocess(cmd);
 }
 
@@ -252,7 +250,7 @@ bool file_exists(char *path) {
 static void run_linker(StringArray *inputs, char *output) {
   StringArray arr = {};
 
-  strarray_push(&arr, "ld");
+  strarray_push(&arr, "clang");
   strarray_push(&arr, "-o");
   strarray_push(&arr, output);
 
