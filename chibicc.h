@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #define __attribute__(x)
 
 #include <assert.h>

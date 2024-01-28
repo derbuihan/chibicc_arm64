@@ -334,7 +334,7 @@ static void gen_num32(int32_t val) {
 }
 
 void gen_expr(Node *node) {
-  // println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
+  println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
 
   switch (node->kind) {
     case ND_NULL_EXPR:
@@ -712,7 +712,7 @@ void gen_expr(Node *node) {
 }
 
 void gen_stmt(Node *node) {
-  // println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
+  println("    .loc %d %d", node->tok->file->file_no, node->tok->line_no);
 
   switch (node->kind) {
     case ND_IF: {
