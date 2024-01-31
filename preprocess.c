@@ -46,14 +46,15 @@ static CondIncl *cond_incl;
 
 static Token *preprocess2(Token *tok);
 static Macro *find_macro(Token *tok);
-
+static char *join_tokens(Token *tok, Token *end);
+static char *search_include_paths(char *filename);
 static bool is_hash(Token *tok) { return tok->at_bol && equal(tok, "#"); }
 
 static Token *skip_line(Token *tok) {
   if (tok->at_bol) {
     return tok;
   }
-  warn_tok(tok, "extra token");
+  warn_tok(tok, "warning: extra token");
   while (tok->at_bol) {
     tok = tok->next;
   }
@@ -247,6 +248,32 @@ static Token *read_const_expr(Token **rest, Token *tok) {
       cur = cur->next = new_num_token(m ? 1 : 0, start);
       continue;
     }
+
+    if (equal(tok, "__has_include")) {
+      Token *start = tok;
+      tok = tok->next;  // skip "__has_include"
+      assert(equal(tok, "("));
+      tok = tok->next;  // skip '('
+
+      char *filename;
+      if (equal(tok, "<")) {
+        Token *start = tok;
+        for (; !equal(tok, ">"); tok = tok->next) {
+          if (tok->at_bol || tok->kind == TK_EOF) {
+            error_tok(tok, "expected '>'");
+          }
+        }
+        filename = join_tokens(start->next, tok);
+        tok = tok->next;  // skip '>'
+      }
+      char *path = search_include_paths(filename);
+
+      assert(equal(tok, ")"));
+      tok = tok->next;  // skip ')'
+      cur = cur->next = new_num_token(path ? 1 : 0, start);
+      continue;
+    }
+
     cur = cur->next = tok;
     tok = tok->next;
   }
