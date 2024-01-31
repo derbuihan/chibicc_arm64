@@ -371,6 +371,11 @@ int main() {
   ASSERT(0, strcmp(basename(include1_filename), "include1.h"));
   ASSERT(4, include1_line);
 
+#if __has_include(<test.h>)
+  m = 11;
+#endif
+  ASSERT(11, m);
+
   printf("OK\n");
 
   return 0;
