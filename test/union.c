@@ -62,9 +62,18 @@ int main() {
            y = x;
            y.c.b;
          }));
-  // TODO: Fix this.
-  // ASSERT(5, ({ union { struct { int a, b; } *c; } x, y; x.c->b = 3; y = x;
-  // x.c->b = 5; y.c->b; }));
+  ASSERT(5, ({
+           union {
+             struct {
+               int a, b;
+             } *c;
+           } x, y;
+           x.c = malloc(sizeof(*(x.c)));  // chibicc does not malloc
+           x.c->b = 3;
+           y = x;
+           x.c->b = 5;
+           y.c->b;
+         }));
 
   printf("OK\n");
 
