@@ -99,5 +99,5 @@ endforeach ()
 
 # compare stage2 and stage3
 add_custom_target(stage2_bin ALL COMMAND ./chibicc -I../include -o ${STAGE2_OUTPUT_DIR}/chibicc ${SRCS} DEPENDS chibicc ${SRCS})
-add_custom_target(stage3_bib ALL COMMAND ./stage2/chibicc -I../include -o ${STAGE3_OUTPUT_DIR}/chibicc ${SRCS} DEPENDS stage2_bin ${SRCS})
+add_custom_target(stage3_bin ALL COMMAND ./stage2/chibicc -I../include -o ${STAGE3_OUTPUT_DIR}/chibicc ${SRCS} DEPENDS stage2_bin ${SRCS})
 add_test(NAME compare_stage2_stage3 COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/compare.sh ${STAGE2_OUTPUT_DIR}/chibicc ${STAGE3_OUTPUT_DIR}/chibicc)
