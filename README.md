@@ -56,9 +56,11 @@ $ ctest
 Running the tests will help ensure that your build is functioning correctly and that any changes made have not
 introduced regressions.
 
-## TODO
+## Todo
 
-- designated initializer
+- [ ] function that take 9 or more arguments
+- [ ] preprocesser : `__attribute__`, `__asm`, `__has_include`
+- [ ] designated initializer
 
 ## Reference
 
