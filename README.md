@@ -56,6 +56,10 @@ $ ctest
 Running the tests will help ensure that your build is functioning correctly and that any changes made have not
 introduced regressions.
 
+## TODO
+
+- designated initializer
+
 ## Reference
 
 * For a comprehensive guide on writing a C compiler, visit: https://www.sigbus.info/compilerbook
