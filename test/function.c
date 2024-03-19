@@ -180,6 +180,31 @@ int main() {
   ASSERT(0, strcmp("main", __FUNCTION__));
   ASSERT(0, strcmp("function_fn", function_fn()));
 
+  ASSERT(6, ({
+           int (*funcs[])(int, int) = {add2, sub2};
+           funcs[0](3, 4) + funcs[1](3, 4);
+         }));
+  ASSERT(6, ({
+           typedef int (*func)(int, int);
+           func funcs[] = {add2, sub2};
+           funcs[0](3, 4) + funcs[1](3, 4);
+         }));
+  ASSERT(6, ({
+           struct {
+             int (*add)(int, int);
+             int (*sub)(int, int);
+           } funcs = {add2, sub2};
+           funcs.add(3, 4) + funcs.sub(3, 4);
+         }));
+  ASSERT(6, ({
+           typedef struct {
+             int (*add)(int, int);
+             int (*sub)(int, int);
+           } ops;
+           ops funcs = {add2, sub2};
+           funcs.add(3, 4) + funcs.sub(3, 4);
+         }));
+
   printf("OK\n");
 
   return 0;
